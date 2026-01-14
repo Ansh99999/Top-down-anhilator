@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="manifest" href="manifest.json">
+<title>Jungle Militia</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="menu">
+<h1>JUNGLE MILITIA</h1>
+<div class="menu-options">
+<div>
+<label>Map:</label>
+<select id="map-select" class="menu-select">
+<option value="0">Deep Jungle</option>
+<option value="1">River Delta</option>
+<option value="2">Mountain Base</option>
+</select>
+</div>
+<div>
+<label>Co-pilots:</label>
+<select id="copilot-count" class="menu-select">
+<option value="0">Solo</option>
+<option value="1">1 Ally</option>
+<option value="2">2 Allies</option>
+<option value="3">3 Allies</option>
+</select>
+</div>
+</div>
+<div id="vehicle-selection">
+<div id="vehicle-list"></div>
+</div>
+</div>
+<div id="game-ui">
+<canvas id="gameCanvas"></canvas>
+<div id="joystick"><div id="knob"></div></div>
+<div id="shoot-joystick"><div id="shoot-knob"></div></div>
+<div id="ability-btn">SKILL</div>
+<canvas id="minimap"></canvas>
+<div class="stat-bar">
+<div>HP: <span id="hp-val">100</span></div>
+<div>Score: <span id="score-val">0</span></div>
+</div>
+<div id="wave-info">WAVE <span id="wave-val">1</span></div>
+<div id="threat-bar"><div id="threat-fill"></div></div>
+<div id="notification-area"></div>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
