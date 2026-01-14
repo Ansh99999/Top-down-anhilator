@@ -44,16 +44,16 @@ items.push({x:Math.random()*MAP_WIDTH,y:Math.random()*MAP_HEIGHT,type:Math.floor
 lastItemSpawn=Date.now();
 }
 enemies.forEach(e=>{
-let target=null;let minD=Infinity;
-for(let id in players){let p=players[id];let d=Math.hypot(p.x-e.x,p.y-e.y);if(d<minD){minD=d;target=p;}}
+let target=null;let minDSq=Infinity;
+for(let id in players){let p=players[id];let dx=p.x-e.x;let dy=p.y-e.y;let dSq=dx*dx+dy*dy;if(dSq<minDSq){minDSq=dSq;target=p;}}
 if(target){
 if(e.type===0){ // Rusher
-if(minD<1000){let angle=Math.atan2(target.y-e.y,target.x-e.x);e.x+=Math.cos(angle)*e.speed;e.y+=Math.sin(angle)*e.speed;}
+if(minDSq<1000000){let angle=Math.atan2(target.y-e.y,target.x-e.x);e.x+=Math.cos(angle)*e.speed;e.y+=Math.sin(angle)*e.speed;}
 }else if(e.type===1){ // Shooter
-if(minD<600 && minD>300){let angle=Math.atan2(target.y-e.y,target.x-e.x);if(Math.random()<0.02)bullets.push({id:Math.random(),owner:'enemy',x:e.x,y:e.y,vx:Math.cos(angle)*10,vy:Math.sin(angle)*10,damage:5+wave,life:100});}
-else if(minD>600){let angle=Math.atan2(target.y-e.y,target.x-e.x);e.x+=Math.cos(angle)*e.speed;e.y+=Math.sin(angle)*e.speed;}
+if(minDSq<360000 && minDSq>90000){let angle=Math.atan2(target.y-e.y,target.x-e.x);if(Math.random()<0.02)bullets.push({id:Math.random(),owner:'enemy',x:e.x,y:e.y,vx:Math.cos(angle)*10,vy:Math.sin(angle)*10,damage:5+wave,life:100});}
+else if(minDSq>360000){let angle=Math.atan2(target.y-e.y,target.x-e.x);e.x+=Math.cos(angle)*e.speed;e.y+=Math.sin(angle)*e.speed;}
 }else if(e.type===2){ // Ambusher
-if(minD<200){let angle=Math.atan2(target.y-e.y,target.x-e.x);e.x+=Math.cos(angle)*e.speed*2;e.y+=Math.sin(angle)*e.speed*2;} // Rush when close
+if(minDSq<40000){let angle=Math.atan2(target.y-e.y,target.x-e.x);e.x+=Math.cos(angle)*e.speed*2;e.y+=Math.sin(angle)*e.speed*2;} // Rush when close
 }
 }
 });
@@ -62,12 +62,14 @@ let b=bullets[i];
 if(b.owner==='enemy'){
 for(let id in players){
 let p=players[id];
-if(Math.hypot(b.x-p.x,b.y-p.y)<20){p.hp-=b.damage;bullets.splice(i,1);if(p.hp<=0){io.to(id).emit('gameOver',p.score);delete players[id];}break;}
+let dx=b.x-p.x;let dy=b.y-p.y;
+if(dx*dx+dy*dy<400){p.hp-=b.damage;bullets.splice(i,1);if(p.hp<=0){io.to(id).emit('gameOver',p.score);delete players[id];}break;}
 }
 }else{
 for(let j=enemies.length-1;j>=0;j--){
 let e=enemies[j];
-if(Math.hypot(b.x-e.x,b.y-e.y)<20){
+let dx=b.x-e.x;let dy=b.y-e.y;
+if(dx*dx+dy*dy<400){
 e.hp-=b.damage;bullets.splice(i,1);
 if(e.hp<=0){
 enemies.splice(j,1);if(players[b.owner])players[b.owner].score+=10;
@@ -80,10 +82,11 @@ break;
 }
 for(let id in players){
 let p=players[id];
-enemies.forEach(e=>{if(Math.hypot(p.x-e.x,p.y-e.y)<30){p.hp-=1;if(p.hp<=0){io.to(id).emit('gameOver',p.score);delete players[id];}}});
+enemies.forEach(e=>{let dx=p.x-e.x;let dy=p.y-e.y;if(dx*dx+dy*dy<900){p.hp-=1;if(p.hp<=0){io.to(id).emit('gameOver',p.score);delete players[id];}}});
 for(let k=items.length-1;k>=0;k--){
 let it=items[k];
-if(Math.hypot(p.x-it.x,p.y-it.y)<30){
+let dx=p.x-it.x;let dy=p.y-it.y;
+if(dx*dx+dy*dy<900){
 if(it.type===0)p.hp=Math.min(p.hp+50,p.maxHp);
 if(it.type===1){p.buffs.speed=1.5;setTimeout(()=>p.buffs.speed=1,5000);}
 if(it.type===2){p.buffs.damage=1.5;setTimeout(()=>p.buffs.damage=1,5000);}
