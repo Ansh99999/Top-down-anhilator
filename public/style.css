@@ -13,6 +13,7 @@ select{background:#222;border:2px solid #2ecc71;color:#fff;padding:10px;font-fam
 #vehicle-scroller{width:100%;overflow-x:auto;padding-bottom:20px;white-space:nowrap;-webkit-overflow-scrolling:touch}
 #vehicle-list{display:inline-flex;gap:15px;padding:0 20px}
 .vehicle-card{background:rgba(0,0,0,0.4);border:2px solid #555;border-radius:10px;padding:15px;width:160px;flex-shrink:0;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden}
+.vehicle-card:hover,.vehicle-card:focus-visible{border-color:#f1c40f;transform:translateY(-5px);outline:none;box-shadow:0 0 15px rgba(241,196,15,0.4)}
 .vehicle-card:active{transform:scale(0.95)}
 .vehicle-card h3{margin:5px 0;font-size:18px;color:#fff}
 .vehicle-preview{width:50px;height:50px;margin:10px auto;border-radius:50%;border:2px solid #fff;box-shadow:0 0 10px rgba(255,255,255,0.2)}
