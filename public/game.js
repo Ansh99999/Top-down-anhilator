@@ -36,6 +36,12 @@ let shootJoy={active:false,id:null,cx:0,cy:0,angle:0};
 const joyEl=document.getElementById('joystick');const knobEl=document.getElementById('knob');
 const shootEl=document.getElementById('shoot-joystick');const shootKnob=document.getElementById('shoot-knob');
 const maxR=40;
+
+// Physics State
+let vx=0, vy=0;
+let physicsAngle=0; // The direction the vehicle is facing
+let VEHICLE_DEFS = {}; // Received from server
+
 function handleTouch(e,obj,knob,isShoot){
 e.preventDefault();
 for(let i=0;i<e.changedTouches.length;i++){
@@ -98,7 +104,7 @@ let allyCount=parseInt(document.getElementById('copilot-count').value);
 let mapId=parseInt(document.getElementById('map-select').value);
 socket.emit('joinGame',{type:idx,stats:vehicles[idx].stats,allyCount,mapId});
 }
-socket.on('init',data=>{myId=data.id;players=data.players;obstacles=data.obstacles;destructibles=data.destructibles;mapRadius=data.mapRadius;items=data.items;structures=data.structures;initMapCanvas();});
+socket.on('init',data=>{myId=data.id;players=data.players;obstacles=data.obstacles;destructibles=data.destructibles;mapRadius=data.mapRadius;items=data.items;structures=data.structures;VEHICLE_DEFS=data.vehicleDefs;initMapCanvas();});
 socket.on('updatePlayers',p=>players=p);
 socket.on('update',data=>{players=data.players;bullets=data.bullets;enemies=data.enemies;items=data.items;structures=data.structures;destructibles=data.destructibles;
 document.getElementById('wave-val').innerText=data.wave;
@@ -137,7 +143,7 @@ let sz=50+Math.random()*150;
 mapCtx.beginPath();mapCtx.ellipse(Math.cos(a)*r,Math.sin(a)*r,sz,sz*0.6,Math.random()*Math.PI,0,Math.PI*2);mapCtx.fill();
 }
 }
-function drawVehicle(ctx,color,angle,turretAngle,type){
+function drawVehicle(ctx,color,angle,turretAngle,type, p){
 ctx.save();ctx.rotate(angle);
 ctx.strokeStyle='#000';ctx.lineWidth=2;
 // Detailed Cartoon Style
@@ -153,6 +159,26 @@ ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(-18,-16,36,32,6);ctx.fill();ct
 // Details
 ctx.fillStyle='rgba(255,255,255,0.2)';ctx.beginPath();ctx.rect(-10,-10,20,10);ctx.fill();
 }
+
+// Visual Degradation (Smoke)
+if(p.hp < p.maxHp * 0.3 || p.stress > p.maxStress * 0.8){
+  ctx.fillStyle='rgba(0,0,0,0.5)';
+  let s = (Date.now()%500)/500 * 20;
+  ctx.beginPath();ctx.arc(-20,-10,s,0,Math.PI*2);ctx.fill();
+}
+
+// Shield Visual
+if(p.shield > 0){
+  ctx.strokeStyle='#3498db';ctx.lineWidth=3;
+  ctx.beginPath();ctx.arc(0,0,32,0,Math.PI*2);ctx.stroke();
+  ctx.fillStyle='rgba(52,152,219,0.2)';ctx.fill();
+}
+// Reactive Armor Visual
+if(p.reactive > 0){
+  ctx.strokeStyle='#f1c40f';ctx.lineWidth=4;
+  ctx.beginPath();ctx.arc(0,0,35,0,Math.PI*2* (p.reactive/3));ctx.stroke();
+}
+
 ctx.restore();
 ctx.save();ctx.rotate(turretAngle);
 ctx.fillStyle=type===5?'#555':color;ctx.beginPath();ctx.arc(0,0,10,0,Math.PI*2);ctx.fill();ctx.stroke();
@@ -242,11 +268,20 @@ ctx.restore();
 for(let id in players){
 let p=players[id];
 ctx.save();ctx.translate(p.x,p.y);
-drawVehicle(ctx,id===myId?'#3498db':p.isBot?'#2ecc71':vehicles[p.type].color,p.angle,p.turretAngle,p.type);
+drawVehicle(ctx,id===myId?'#3498db':p.isBot?'#2ecc71':vehicles[p.type].color,p.angle,p.turretAngle,p.type, p);
 ctx.restore();
 // Health
 ctx.fillStyle='#c0392b';ctx.fillRect(p.x-20,p.y-35,40,4);
 ctx.fillStyle='#2ecc71';ctx.fillRect(p.x-20,p.y-35,40*(p.hp/p.maxHp),4);
+// Armor (Gray)
+if(p.armor > 0){
+  ctx.fillStyle='#7f8c8d';ctx.fillRect(p.x-20,p.y-40,40*(p.armor/p.maxArmor),3);
+}
+// Stress (White/Flicker)
+if(p.stress > 0){
+  ctx.fillStyle=p.overload ? (Date.now()%200<100?'#e74c3c':'#fff') : '#ecf0f1';
+  ctx.fillRect(p.x-20,p.y-30,40*(p.stress/p.maxStress),2);
+}
 }
 ctx.restore();
 miniCtx.clearRect(0,0,150,150);
@@ -257,25 +292,63 @@ miniCtx.fillStyle='#c0392b';enemies.forEach(e=>miniCtx.fillRect(e.x*s,e.y*s,3,3)
 miniCtx.fillStyle='#3498db';miniCtx.fillRect(me.x*s,me.y*s,4,4);
 miniCtx.fillStyle='#d35400';destructibles.forEach(d=>miniCtx.fillRect(d.x*s,d.y*s,3,3));
 miniCtx.setTransform(1,0,0,1,0,0);
-// Movement Logic
-let spd=me.speed*(me.buffs?me.buffs.speed:1);
-let moveAngle=null;
-if(joystick.active){moveAngle=joystick.angle;}
+// Movement Logic (Physics Engine)
+let inputAngle=null;
+if(joystick.active){inputAngle=joystick.angle;}
 else{
 let dx=0,dy=0;
 if(keys['ArrowUp']||keys['w'])dy=-1;if(keys['ArrowDown']||keys['s'])dy=1;
 if(keys['ArrowLeft']||keys['a'])dx=-1;if(keys['ArrowRight']||keys['d'])dx=1;
-if(dx!=0||dy!=0)moveAngle=Math.atan2(dy,dx);
+if(dx!=0||dy!=0)inputAngle=Math.atan2(dy,dx);
 }
-if(moveAngle!==null){
-let nx=me.x+Math.cos(moveAngle)*spd;let ny=me.y+Math.sin(moveAngle)*spd;
+
+// Default profile
+let def = VEHICLE_DEFS[me.type] || { physics: { accel: 0.5, maxSpd: 5, turnSpd: 0.1, drift: 0.9, mass: 1 } };
+let phys = def.physics;
+
+if(inputAngle!==null){
+  // Accelerate towards input
+  let ax = Math.cos(inputAngle) * phys.accel;
+  let ay = Math.sin(inputAngle) * phys.accel;
+
+  // Turn towards input
+  let diff = inputAngle - physicsAngle;
+  while(diff < -Math.PI) diff += Math.PI*2;
+  while(diff > Math.PI) diff -= Math.PI*2;
+  physicsAngle += diff * phys.turnSpd; // Turn Inertia
+
+  vx += ax; vy += ay;
+}
+
+// Friction / Drift
+vx *= phys.drift;
+vy *= phys.drift;
+
+// Cap Speed
+let spd = Math.hypot(vx,vy);
+if(spd > phys.maxSpd){
+  vx = (vx/spd) * phys.maxSpd;
+  vy = (vy/spd) * phys.maxSpd;
+}
+
+let nx = me.x + vx;
+let ny = me.y + vy;
+
 // Client Side Collision
 let hit=false;
 if(Math.hypot(nx,ny)>mapRadius-25) hit=true;
 for(let o of obstacles){if(Math.hypot(nx-o.x,ny-o.y)<o.r+25)hit=true;}
 for(let d of destructibles){if(Math.hypot(nx-d.x,ny-d.y)<d.r+25)hit=true;}
-if(!hit){socket.emit('move',{x:nx,y:ny,angle:moveAngle});me.x=nx;me.y=ny;me.angle=moveAngle;}
+
+if(hit){
+  // Simple bounce/stop
+  vx *= -0.5; vy *= -0.5;
+  nx = me.x + vx; ny = me.y + vy;
 }
+
+me.x = nx; me.y = ny; me.angle = physicsAngle;
+socket.emit('move',{x:nx,y:ny,angle:physicsAngle, vx, vy}); // Send vx/vy for passive logic
+
 requestAnimationFrame(draw);
 }
 requestAnimationFrame(draw);

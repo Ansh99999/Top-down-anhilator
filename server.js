@@ -4,6 +4,84 @@ let players={};let bullets=[];let enemies=[];let obstacles=[];let items=[];let s
 // Radius based maps
 const MAP_SIZES={0:2000,1:2500,2:1500}; // 0:Jungle, 1:River, 2:Mountain
 let currentMap=0;
+// --- VEHICLE DESIGN UPDATE ---
+// 1. Handling, 2. Durability, 3. Stress, 4. Evolution, 5. Passives, 6. Damage Types
+const VEHICLE_DEFS = {
+  0: { // Dune Buggy
+    name: 'Dune Buggy',
+    physics: { accel: 0.8, maxSpd: 10, turnSpd: 0.1, drift: 0.96, mass: 1 },
+    durability: { type: 'SHIELD', max: 50, regen: 10, delay: 3000 },
+    resistance: { KINETIC: 1.0, EXPLOSIVE: 1.5, ENERGY: 0.8, HEAT: 1.0 },
+    stress: { max: 100, decay: 2, overloadDuration: 3000 },
+    passives: ['SPEED_DAMAGE'],
+    ability: { name: 'Nitro', type: 'boost' }
+  },
+  1: { // Ranger Jeep
+    name: 'Ranger Jeep',
+    physics: { accel: 0.5, maxSpd: 8, turnSpd: 0.08, drift: 0.90, mass: 1.2 },
+    durability: { type: 'ARMOR', max: 50, mitigation: 0.2 }, // Reduces dmg by 20% while armor holds
+    resistance: { KINETIC: 0.8, EXPLOSIVE: 1.0, ENERGY: 1.2, HEAT: 1.0 },
+    stress: { max: 100, decay: 3, overloadDuration: 2000 },
+    passives: ['SQUAD_LINK'], // Buffs nearby allies
+    ability: { name: 'Field Med', type: 'heal' }
+  },
+  2: { // Armored Truck
+    name: 'Armored Truck',
+    physics: { accel: 0.3, maxSpd: 6, turnSpd: 0.05, drift: 0.85, mass: 2.0 },
+    durability: { type: 'HEAT_SINK', max: 100, overheatThreshold: 80 },
+    resistance: { KINETIC: 0.5, EXPLOSIVE: 0.8, ENERGY: 1.5, HEAT: 2.0 },
+    stress: { max: 100, decay: 1, overloadDuration: 5000 },
+    passives: ['HEAVY_IMPACT'], // Ramming dmg
+    ability: { name: 'Dmg Up', type: 'buff' }
+  },
+  3: { // Battle Tank
+    name: 'Battle Tank',
+    physics: { accel: 0.2, maxSpd: 4, turnSpd: 0.03, drift: 0.80, mass: 3.0 },
+    durability: { type: 'REACTIVE', max: 3, recharge: 10000 }, // Blocks 3 hits fully
+    resistance: { KINETIC: 0.4, EXPLOSIVE: 0.6, ENERGY: 1.2, HEAT: 1.2 },
+    stress: { max: 150, decay: 1, overloadDuration: 4000 },
+    passives: ['SIEGE_MODE'], // Stationary buff
+    ability: { name: 'Repair', type: 'repair' }
+  },
+  4: { // Rocket Truck
+    name: 'Rocket Truck',
+    physics: { accel: 0.4, maxSpd: 5, turnSpd: 0.04, drift: 0.85, mass: 1.8 },
+    durability: { type: 'NONE', max: 0 },
+    resistance: { KINETIC: 1.2, EXPLOSIVE: 1.2, ENERGY: 1.0, HEAT: 0.5 },
+    stress: { max: 80, decay: 1, overloadDuration: 6000 },
+    passives: ['BOMBARDMENT'], // Range dmg
+    ability: { name: 'Barrage', type: 'barrage' }
+  },
+  5: { // Iron Fortress
+    name: 'Iron Fortress',
+    physics: { accel: 0.1, maxSpd: 3, turnSpd: 0.02, drift: 0.70, mass: 5.0 },
+    durability: { type: 'ARMOR', max: 200, mitigation: 0.4 },
+    resistance: { KINETIC: 0.3, EXPLOSIVE: 0.5, ENERGY: 1.0, HEAT: 1.0 },
+    stress: { max: 200, decay: 5, overloadDuration: 10000 },
+    passives: ['AURA_DEFENSE'],
+    ability: { name: 'Mega Repair', type: 'fortress' }
+  },
+  6: { // Attack Chopper
+    name: 'Attack Chopper',
+    physics: { accel: 0.9, maxSpd: 12, turnSpd: 0.15, drift: 0.98, mass: 0.5 },
+    durability: { type: 'SHIELD', max: 30, regen: 15, delay: 2000 },
+    resistance: { KINETIC: 1.5, EXPLOSIVE: 2.0, ENERGY: 0.8, HEAT: 0.8 },
+    stress: { max: 80, decay: 4, overloadDuration: 2000 },
+    passives: ['STRAFE_RUN'], // Move sideways faster
+    ability: { name: 'Afterburner', type: 'speed' }
+  },
+  7: { // Combat Engi
+    name: 'Combat Engi',
+    physics: { accel: 0.6, maxSpd: 7, turnSpd: 0.09, drift: 0.90, mass: 1.0 },
+    durability: { type: 'NONE', max: 0 },
+    resistance: { KINETIC: 1.0, EXPLOSIVE: 1.0, ENERGY: 1.0, HEAT: 1.0 },
+    stress: { max: 100, decay: 2, overloadDuration: 3000 },
+    passives: ['SCAVENGER'], // Heals on kill
+    ability: { name: 'Sentry', type: 'turret' }
+  }
+};
+// ----------------------------
+
 function generateObstacles(mapId){
 obstacles=[];destructibles=[];
 let r=MAP_SIZES[mapId];
@@ -58,13 +136,25 @@ if(data.mapId!==undefined && data.mapId!==currentMap){currentMap=data.mapId;gene
 let stats=data.stats;
 let fireRate=10;
 if(data.type===0) fireRate=5;if(data.type===3 || data.type===5) fireRate=20;if(data.type===6) fireRate=8;
+
+let def = VEHICLE_DEFS[data.type] || VEHICLE_DEFS[0];
+
 players[socket.id]={
 id:socket.id,x:0,y:0,angle:0,turretAngle:0, // Spawn at center
 type:data.type,hp:stats.hp,maxHp:stats.hp,speed:stats.speed,damage:stats.damage,
 score:0,buffs:{speed:1,damage:1},isBot:false,
 isShooting:false,fireCooldown:0,fireRate:fireRate,
-lastAbility:0,abilityCd:ABILITY_COOLDOWNS[data.type]||10000
+lastAbility:0,abilityCd:ABILITY_COOLDOWNS[data.type]||10000,
+// New Mechanics
+vx: 0, vy: 0, // Velocity
+stress: 0, maxStress: def.stress.max, overload: false,
+shield: (def.durability.type==='SHIELD'?def.durability.max:0), maxShield: (def.durability.type==='SHIELD'?def.durability.max:0), lastHit: 0,
+armor: (def.durability.type==='ARMOR'?def.durability.max:0), maxArmor: (def.durability.type==='ARMOR'?def.durability.max:0),
+reactive: (def.durability.type==='REACTIVE'?def.durability.max:0),
+augments: [],
+evolution: 0 // 0: Base, 1: Path A, 2: Path B
 };
+
 // Spawn allies slightly offset
 for(let i=0;i<data.allyCount;i++){
 let allyId=`bot_${socket.id}_${i}`;
@@ -74,15 +164,19 @@ id:allyId,owner:socket.id,x:Math.random()*100-50,y:Math.random()*100-50,
 angle:0,turretAngle:0,type:rType,hp:100,maxHp:100,speed:4,damage:15,
 score:0,buffs:{speed:1,damage:1},isBot:true,
 isShooting:false,fireCooldown:0,fireRate:15,
-lastAbility:0,abilityCd:10000,state:'follow',targetId:null
+lastAbility:0,abilityCd:10000,state:'follow',targetId:null,
+vx:0, vy:0, stress:0, shield:0, armor:0
 };
 }
-socket.emit('init',{id:socket.id,players,obstacles,destructibles,mapRadius:MAP_SIZES[currentMap],wave,items,structures});
+// Send defs to client
+socket.emit('init',{id:socket.id,players,obstacles,destructibles,mapRadius:MAP_SIZES[currentMap],wave,items,structures, vehicleDefs: VEHICLE_DEFS});
 if(activeEvent) socket.emit('eventStart',activeEvent);
 io.emit('updatePlayers',players);
 });
 socket.on('move',(data)=>{if(players[socket.id]){
+  // Update physics state (Client sends authoritative position for lag reasons, but we track velocity for server logic if needed)
   players[socket.id].x=data.x;players[socket.id].y=data.y;players[socket.id].angle=data.angle;
+  if(data.vx!==undefined){players[socket.id].vx=data.vx;players[socket.id].vy=data.vy;} // Sync velocity for passives
 }});
 socket.on('shootInput',(data)=>{if(players[socket.id]){players[socket.id].turretAngle=data.angle;players[socket.id].isShooting=data.active;}});
 socket.on('ability',()=>{if(players[socket.id])useAbility(players[socket.id]);});
@@ -94,8 +188,16 @@ io.emit('updatePlayers',players);
 });
 });
 function useAbility(p){
-if(Date.now()-p.lastAbility<p.abilityCd)return;
+if(p.overload || Date.now()-p.lastAbility<p.abilityCd)return;
 p.lastAbility=Date.now();
+// Stress Buildup
+p.stress = Math.min(p.stress + 20, p.maxStress); // 20 stress per ability
+if(p.stress >= p.maxStress){
+  p.overload = true;
+  io.to(p.id).emit('notification', 'SYSTEM OVERLOAD!');
+  setTimeout(()=>{p.overload=false;p.stress=0;}, 3000); // 3s overload penalty
+}
+
 if(p.type===0){p.x+=Math.cos(p.angle)*250;p.y+=Math.sin(p.angle)*250;} // Nitro
 if(p.type===1){p.hp=Math.min(p.hp+40,p.maxHp);} // Med
 if(p.type===2){p.buffs.damage=2.5;setTimeout(()=>p.buffs.damage=1,4000);} // Dmg
@@ -140,12 +242,46 @@ if(threat>0) threat-=0.05;
 for(let id in players){
 let p=players[id];
 resolveCollision(p,25);
+
+// Stress Decay
+if(!p.overload && p.stress>0 && !p.isShooting) p.stress = Math.max(0, p.stress - 0.2);
+
+// Shield Regen
+let def = VEHICLE_DEFS[p.type] || VEHICLE_DEFS[0];
+if(def.durability.type === 'SHIELD'){
+  if(Date.now() - p.lastHit > def.durability.delay && p.shield < p.maxShield){
+     p.shield = Math.min(p.shield + 0.5, p.maxShield); // Slow regen
+  }
+}
+
+// Shooting Stress
+if(p.isShooting && !p.overload){
+  p.stress = Math.min(p.stress + 0.5, p.maxStress); // Firing builds stress
+  if(p.stress >= p.maxStress){
+    p.overload = true;
+    p.isShooting = false;
+    io.to(p.id).emit('notification', 'OVERLOAD! COOLING DOWN...');
+    setTimeout(()=>{p.overload=false;p.stress=0;}, 2000);
+  }
+}
+
 if(p.fireCooldown>0) p.fireCooldown--;
-if(p.isShooting && p.fireCooldown<=0){
+if(p.isShooting && p.fireCooldown<=0 && !p.overload){
 let dmg=p.damage*p.buffs.damage;
 if(activeEvent && activeEvent.name==='POWER SURGE') dmg*=2;
+// Passive: Speed Damage
+if(def.passives.includes('SPEED_DAMAGE')){
+  let spd = Math.hypot(p.vx||0, p.vy||0);
+  dmg += spd * 1.5;
+}
+// Passive: Siege Mode
+if(def.passives.includes('SIEGE_MODE')){
+   let spd = Math.hypot(p.vx||0, p.vy||0);
+   if(spd < 0.5) dmg *= 1.3;
+}
+
 if(p.type===6) dmg+=p.speed;
-bullets.push({id:Math.random(),owner:p.id,x:p.x,y:p.y,vx:Math.cos(p.turretAngle)*20,vy:Math.sin(p.turretAngle)*20,damage:dmg,life:100});
+bullets.push({id:Math.random(),owner:p.id,x:p.x,y:p.y,vx:Math.cos(p.turretAngle)*20,vy:Math.sin(p.turretAngle)*20,damage:dmg,life:100, type: 'KINETIC'}); // Default Kinetic
 p.fireCooldown=p.fireRate;
 }
 }
@@ -294,7 +430,38 @@ if(b.owner==='enemy'){
 for(let id in players){
 let p=players[id];
 if(Math.hypot(b.x-p.x,b.y-p.y)<20){
-p.hp-=b.damage;bullets.splice(i,1);
+  // Player Damage Logic (Durability)
+  let dmg = b.damage;
+  let def = VEHICLE_DEFS[p.type] || VEHICLE_DEFS[0];
+
+  // Resistance
+  let type = b.type || 'KINETIC';
+  let res = def.resistance[type] || 1.0;
+  dmg /= res; // Higher res = less damage (e.g., 1.5 res = damage/1.5)
+
+  p.lastHit = Date.now();
+
+  // Durability Check
+  if(p.reactive > 0){
+    p.reactive--;
+    dmg = 0; // Blocked
+    io.to(p.id).emit('notification', 'REACTIVE ARMOR BLOCKED HIT');
+  } else if(p.shield > 0){
+    if(p.shield >= dmg){
+      p.shield -= dmg;
+      dmg = 0;
+    } else {
+      dmg -= p.shield;
+      p.shield = 0;
+    }
+  } else if(p.armor > 0){
+    let mitigation = def.durability.mitigation || 0;
+    dmg *= (1 - mitigation);
+    p.armor = Math.max(0, p.armor - dmg * 0.5); // Armor degrades slower than HP
+  }
+
+  p.hp-=dmg;
+  bullets.splice(i,1);
 if(p.hp<=0){
 if(p.isBot){io.to(p.owner).emit('notification',`Chassis ${p.id.split('_')[2]} has died!`);delete players[id];}
 else{io.to(id).emit('gameOver',p.score);delete players[id];for(let pid in players){if(players[pid].owner===id)delete players[pid];}}
