@@ -7,11 +7,11 @@ let width,height;
 function resize(){width=window.innerWidth;height=window.innerHeight;canvas.width=width;canvas.height=height;miniCanvas.width=150;miniCanvas.height=150;}
 window.addEventListener('resize',resize);resize();
 const vehicles=[
-{name:'Speedie',stats:{hp:80,damage:10,speed:5},desc:'Fast but fragile.',color:'#0ff'},
-{name:'Normal',stats:{hp:100,damage:15,speed:4},desc:'Balanced.',color:'#fff'},
-{name:'Medium',stats:{hp:120,damage:20,speed:3},desc:'Tougher.',color:'#ff0'},
-{name:'Heavy',stats:{hp:150,damage:25,speed:2},desc:'Tanky.',color:'#f00'},
-{name:'Bomber',stats:{hp:90,damage:40,speed:3},desc:'High damage.',color:'#f0f'}
+{name:'Speedie',stats:{hp:80,damage:10,speed:5},desc:'Fast. Ability: Dash',color:'#0ff'},
+{name:'Normal',stats:{hp:100,damage:15,speed:4},desc:'Balanced. Ability: Heal',color:'#fff'},
+{name:'Medium',stats:{hp:120,damage:20,speed:3},desc:'Tough. Ability: Dmg Boost',color:'#ff0'},
+{name:'Heavy',stats:{hp:150,damage:25,speed:2},desc:'Tank. Ability: Overheal',color:'#f00'},
+{name:'Bomber',stats:{hp:90,damage:40,speed:3},desc:'Damage. Ability: Blast',color:'#f0f'}
 ];
 vehicles.forEach((v,i)=>{
 const el=document.createElement('div');el.className='vehicle-card';
@@ -19,7 +19,7 @@ el.innerHTML=`<h3>${v.name}</h3><div style="width:30px;height:30px;background:${
 el.onclick=()=>startGame(i);
 vehicleList.appendChild(el);
 });
-let myId=null;let players={};let bullets=[];let enemies=[];let obstacles=[];
+let myId=null;let players={};let bullets=[];let enemies=[];let obstacles=[];let items=[];
 let mapW=4000;let mapH=4000;
 let camX=0;let camY=0;
 let joystick={active:false,x:0,y:0,angle:0};
@@ -36,7 +36,8 @@ if(dist>maxR){dx=Math.cos(angle)*maxR;dy=Math.sin(angle)*maxR;}
 knobEl.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`;
 }
 document.getElementById('shoot-btn').addEventListener('touchstart',()=>socket.emit('shoot',{}));
-document.addEventListener('keydown',e=>{if(e.code==='Space')socket.emit('shoot',{});});
+document.getElementById('ability-btn').addEventListener('touchstart',()=>socket.emit('ability',{}));
+document.addEventListener('keydown',e=>{if(e.code==='Space')socket.emit('shoot',{});if(e.code==='ShiftLeft')socket.emit('ability',{});});
 let keys={};
 document.addEventListener('keydown',e=>keys[e.key]=true);
 document.addEventListener('keyup',e=>keys[e.key]=false);
@@ -44,9 +45,9 @@ function startGame(idx){
 menu.style.display='none';gameUi.style.display='block';
 socket.emit('joinGame',{type:idx,stats:vehicles[idx].stats});
 }
-socket.on('init',data=>{myId=data.id;players=data.players;obstacles=data.obstacles;mapW=data.map.w;mapH=data.map.h;});
+socket.on('init',data=>{myId=data.id;players=data.players;obstacles=data.obstacles;mapW=data.map.w;mapH=data.map.h;items=data.items;});
 socket.on('updatePlayers',p=>players=p);
-socket.on('update',data=>{players=data.players;bullets=data.bullets;enemies=data.enemies;
+socket.on('update',data=>{players=data.players;bullets=data.bullets;enemies=data.enemies;items=data.items;
 document.getElementById('wave-val').innerText=data.wave;
 if(players[myId]){
 document.getElementById('hp-val').innerText=Math.floor(players[myId].hp);
@@ -63,7 +64,11 @@ camX=Math.max(0,Math.min(camX,mapW-width));camY=Math.max(0,Math.min(camY,mapH-he
 ctx.save();ctx.translate(-camX,-camY);
 ctx.strokeStyle='#333';ctx.lineWidth=5;ctx.strokeRect(0,0,mapW,mapH);
 ctx.fillStyle='#444';obstacles.forEach(o=>ctx.fillRect(o.x,o.y,o.w,o.h));
-bullets.forEach(b=>{ctx.fillStyle='#ff0';ctx.beginPath();ctx.arc(b.x,b.y,5,0,Math.PI*2);ctx.fill();});
+items.forEach(i=>{
+ctx.fillStyle=i.type===0?'#0f0':i.type===1?'#0ff':'#f0f';
+ctx.beginPath();ctx.arc(i.x,i.y,10,0,Math.PI*2);ctx.fill();
+});
+bullets.forEach(b=>{ctx.fillStyle=b.owner==='enemy'?'#f00':'#ff0';ctx.beginPath();ctx.arc(b.x,b.y,5,0,Math.PI*2);ctx.fill();});
 enemies.forEach(e=>{
 ctx.save();ctx.translate(e.x,e.y);
 ctx.fillStyle=e.type===0?'#f00':e.type===1?'#0f0':'#00f';
@@ -84,9 +89,10 @@ miniCtx.fillStyle='#000';miniCtx.fillRect(0,0,150,150);
 let s=150/Math.max(mapW,mapH);
 miniCtx.fillStyle='#444';obstacles.forEach(o=>miniCtx.fillRect(o.x*s,o.y*s,o.w*s,o.h*s));
 miniCtx.fillStyle='#f00';enemies.forEach(e=>miniCtx.fillRect(e.x*s,e.y*s,2,2));
+miniCtx.fillStyle='#ff0';items.forEach(i=>miniCtx.fillRect(i.x*s,i.y*s,3,3));
 for(let id in players){let p=players[id];miniCtx.fillStyle=id===myId?'#0f0':'#fff';miniCtx.fillRect(p.x*s,p.y*s,3,3);}
+let spd=me.speed*(me.buffs?me.buffs.speed:1);
 if(joystick.active){
-let spd=me.speed;
 let dx=Math.cos(joystick.angle)*spd;let dy=Math.sin(joystick.angle)*spd;
 let nx=me.x+dx;let ny=me.y+dy;
 if(nx>0 && nx<mapW && ny>0 && ny<mapH){
@@ -99,7 +105,6 @@ if(keys['ArrowUp']||keys['w'])dy=-1;if(keys['ArrowDown']||keys['s'])dy=1;
 if(keys['ArrowLeft']||keys['a'])dx=-1;if(keys['ArrowRight']||keys['d'])dx=1;
 if(dx!=0||dy!=0){
 let angle=Math.atan2(dy,dx);
-let spd=me.speed;
 let nx=me.x+Math.cos(angle)*spd;let ny=me.y+Math.sin(angle)*spd;
 if(nx>0 && nx<mapW && ny>0 && ny<mapH){
 let collide=obstacles.some(o=>nx>o.x-20 && nx<o.x+o.w+20 && ny>o.y-20 && ny<o.y+o.h+20);
