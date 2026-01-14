@@ -63,6 +63,26 @@ else socket.emit('shootInput',{active:true,angle:obj.angle});
 joyEl.addEventListener(evt,e=>handleTouch(e,joystick,knobEl,false));
 shootEl.addEventListener(evt,e=>handleTouch(e,shootJoy,shootKnob,true));
 });
+// Mouse Support
+function handleMouse(e,obj,knob,isShoot){
+e.preventDefault();
+if(e.type==='mousedown'){
+obj.active=true;obj.id='mouse';
+let r=e.target.getBoundingClientRect();
+obj.cx=r.left+r.width/2;obj.cy=r.top+r.height/2;
+updateJoy(e,obj,knob,isShoot);
+}else if(obj.active && obj.id==='mouse'){
+if(e.type==='mousemove') updateJoy(e,obj,knob,isShoot);
+if(e.type==='mouseup' || e.type==='mouseleave'){
+obj.active=false;obj.id=null;knob.style.transform=`translate(-50%,-50%)`;
+if(isShoot) socket.emit('shootInput',{active:false,angle:obj.angle});
+}
+}
+}
+['mousedown','mousemove','mouseup','mouseleave'].forEach(evt=>{
+joyEl.addEventListener(evt,e=>handleMouse(e,joystick,knobEl,false));
+shootEl.addEventListener(evt,e=>handleMouse(e,shootJoy,shootKnob,true));
+});
 document.getElementById('ability-btn').addEventListener('touchstart',e=>{e.preventDefault();socket.emit('ability',{});});
 document.addEventListener('keydown',e=>{if(e.code==='Space')socket.emit('shootInput',{active:true,angle:players[myId].turretAngle});if(e.code==='ShiftLeft')socket.emit('ability',{});});
 document.addEventListener('keyup',e=>{if(e.code==='Space')socket.emit('shootInput',{active:false,angle:players[myId].turretAngle});});
@@ -90,57 +110,57 @@ let el=document.createElement('div');el.className='notification';el.innerText=ms
 notifArea.appendChild(el);setTimeout(()=>el.remove(),3000);
 });
 socket.on('gameOver',score=>{alert('Game Over! Score: '+score);location.reload();});
+if(!ctx.roundRect){
+ctx.roundRect=function(x,y,w,h,r){
+if(w<2*r) r=w/2;if(h<2*r) r=h/2;
+this.beginPath();this.moveTo(x+r,y);
+this.arcTo(x+w,y,x+w,y+h,r);this.arcTo(x+w,y+h,x,y+h,r);
+this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r);this.closePath();
+}
+}
 function drawVehicle(ctx,color,angle,turretAngle,type){
 ctx.save();ctx.rotate(angle);
 ctx.strokeStyle='#000';ctx.lineWidth=2;
-// Cartoon Style
-if(type===6){ // Chopper
+if(type===6){
 ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(0,0,25,10,0,0,Math.PI*2);ctx.fill();ctx.stroke();
-ctx.fillStyle='#333';ctx.beginPath();ctx.rect(-5,-25,10,50);ctx.fill(); // Blades
+ctx.fillStyle='#333';ctx.beginPath();ctx.rect(-5,-25,10,50);ctx.fill();
 } else {
-// Treads
 ctx.fillStyle='#333';ctx.beginPath();ctx.roundRect(-25,-20,50,40,5);ctx.fill();ctx.stroke();
-// Body
 ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(-20,-15,40,30,5);ctx.fill();ctx.stroke();
 }
 ctx.restore();
-// Turret
 ctx.save();ctx.rotate(turretAngle);
 ctx.fillStyle=color;ctx.beginPath();ctx.arc(0,0,12,0,Math.PI*2);ctx.fill();ctx.stroke();
-ctx.fillStyle='#111';ctx.beginPath();ctx.rect(0,-5,35,10);ctx.fill();ctx.stroke(); // Gun
+ctx.fillStyle='#111';ctx.beginPath();ctx.rect(0,-5,35,10);ctx.fill();ctx.stroke();
 ctx.restore();
 }
 function drawEnemy(ctx,type,angle){
 ctx.rotate(angle);ctx.strokeStyle='#000';ctx.lineWidth=2;
-if(type===0){ // Rusher - Guerilla
+if(type===0){
 ctx.fillStyle='#e74c3c';ctx.beginPath();ctx.arc(0,0,15,0,Math.PI*2);ctx.fill();ctx.stroke();
-ctx.fillStyle='#f1c40f';ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill(); // Helmet
-}else if(type===1){ // Shooter - Merc
+ctx.fillStyle='#f1c40f';ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill();
+}else if(type===1){
 ctx.fillStyle='#27ae60';ctx.beginPath();ctx.rect(-15,-15,30,30);ctx.fill();ctx.stroke();
-ctx.fillStyle='#2c3e50';ctx.beginPath();ctx.rect(0,-3,25,6);ctx.fill(); // Rifle
-}else{ // Ambusher - Ninja
+ctx.fillStyle='#2c3e50';ctx.beginPath();ctx.rect(0,-3,25,6);ctx.fill();
+}else{
 ctx.fillStyle='#8e44ad';ctx.beginPath();ctx.moveTo(15,0);ctx.lineTo(-10,15);ctx.lineTo(-10,-15);ctx.fill();ctx.stroke();
 }
 }
 function draw(){
-// Jungle Grass Background
 ctx.fillStyle='#2ecc71';ctx.fillRect(0,0,width,height);
 ctx.save();
 ctx.fillStyle='#27ae60';
-for(let i=0;i<width;i+=200)for(let j=0;j<height;j+=200)ctx.fillRect(i,j,100,100); // Checkered grass pattern
+for(let i=0;i<width;i+=200)for(let j=0;j<height;j+=200)ctx.fillRect(i,j,100,100);
 ctx.restore();
 if(!myId || !players[myId])return requestAnimationFrame(draw);
 let me=players[myId];
 camX=me.x-width/2;camY=me.y-height/2;
 camX=Math.max(0,Math.min(camX,mapW-width));camY=Math.max(0,Math.min(camY,mapH-height));
 ctx.save();ctx.translate(-camX,-camY);
-// Map Border
 ctx.strokeStyle='#145a32';ctx.lineWidth=20;ctx.strokeRect(0,0,mapW,mapH);
-// Shadows
 ctx.shadowColor='rgba(0,0,0,0.5)';ctx.shadowBlur=15;ctx.shadowOffsetY=10;
-// Obstacles (Trees)
 obstacles.forEach(o=>{
-ctx.fillStyle='#1e8449';ctx.beginPath();ctx.arc(o.x+o.w/2,o.y+o.h/2,o.w/2,0,Math.PI*2);ctx.fill(); // Leaves
+ctx.fillStyle='#1e8449';ctx.beginPath();ctx.arc(o.x+o.w/2,o.y+o.h/2,o.w/2,0,Math.PI*2);ctx.fill();
 ctx.strokeStyle='#145a32';ctx.lineWidth=5;ctx.stroke();
 });
 ctx.shadowBlur=0;ctx.shadowOffsetY=0;
@@ -170,19 +190,16 @@ let p=players[id];
 ctx.save();ctx.translate(p.x,p.y);
 drawVehicle(ctx,id===myId?'#3498db':p.isBot?'#2ecc71':(vehicles[p.type]?vehicles[p.type].color:'#aaa'),p.angle,p.turretAngle,p.type);
 ctx.restore();
-// Health Bar
 ctx.fillStyle='#c0392b';ctx.fillRect(p.x-20,p.y-40,40,5);
 ctx.fillStyle='#2ecc71';ctx.fillRect(p.x-20,p.y-40,40*(p.hp/p.maxHp),5);
 }
 ctx.restore();
-// Minimap
 miniCtx.clearRect(0,0,150,150);
 miniCtx.fillStyle='#27ae60';miniCtx.fillRect(0,0,150,150);
 let s=150/Math.max(mapW,mapH);
 miniCtx.fillStyle='#145a32';obstacles.forEach(o=>miniCtx.beginPath()||miniCtx.arc((o.x+o.w/2)*s,(o.y+o.h/2)*s,o.w*s/2,0,Math.PI*2)||miniCtx.fill());
 miniCtx.fillStyle='#c0392b';enemies.forEach(e=>miniCtx.fillRect(e.x*s,e.y*s,3,3));
 for(let id in players){let p=players[id];miniCtx.fillStyle=id===myId?'#3498db':p.isBot?'#2ecc71':'#fff';miniCtx.fillRect(p.x*s,p.y*s,4,4);}
-// Joystick Fallback (Keyboard)
 let dx=0,dy=0;
 let spd=me.speed*(me.buffs?me.buffs.speed:1);
 if(keys['ArrowUp']||keys['w'])dy=-1;if(keys['ArrowDown']||keys['s'])dy=1;

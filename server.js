@@ -1,7 +1,7 @@
 const express=require('express');const app=express();const http=require('http');const server=http.createServer(app);const {Server}=require("socket.io");const io=new Server(server);const path=require('path');
 app.use(express.static(path.join(__dirname,'public')));
 let players={};let bullets=[];let enemies=[];let obstacles=[];let items=[];let structures=[];
-const MAP_SIZES={0:{w:4000,h:4000},1:{w:5000,h:3000},2:{w:3000,h:3000}}; // 0:Jungle, 1:River, 2:Mountain
+const MAP_SIZES={0:{w:4000,h:4000},1:{w:5000,h:3000},2:{w:3000,h:3000}};
 let currentMap=0;
 function generateObstacles(mapId){
 obstacles=[];
@@ -74,7 +74,7 @@ bullets.push({id:Math.random(),owner:p.id,x:p.x,y:p.y,vx:Math.cos(p.turretAngle)
 p.fireCooldown=p.fireRate;
 }
 }
-structures.forEach(s=>{
+structures.forEach((s,idx)=>{
 s.life--;
 if(s.life%30===0){
 let target=null,minD=500;
@@ -138,7 +138,7 @@ else{io.to(id).emit('gameOver',p.score);delete players[id];for(let pid in player
 }break;
 }
 }
-structures.forEach((s,idx)=>{if(Math.hypot(b.x-s.x,b.y-s.y)<30){s.hp-=b.damage;bullets.splice(i,1);if(s.hp<=0)structures.splice(idx,1);}});
+for(let j=structures.length-1;j>=0;j--){let s=structures[j];if(Math.hypot(b.x-s.x,b.y-s.y)<30){s.hp-=b.damage;bullets.splice(i,1);if(s.hp<=0)structures.splice(j,1);break;}}
 }else{
 for(let j=enemies.length-1;j>=0;j--){
 let e=enemies[j];
@@ -154,10 +154,10 @@ if(enemies.length===0){wave++;io.emit('wave',wave);}
 }
 for(let id in players){
 let p=players[id];
-enemies.forEach((e,idx)=>{let d=Math.hypot(p.x-e.x,p.y-e.y);if(d<30){p.hp-=1;if(p.type===6&&p.speed>10){e.hp-=50;if(e.hp<=0)enemies.splice(idx,1);}}});
+for(let j=enemies.length-1;j>=0;j--){let e=enemies[j];let d=Math.hypot(p.x-e.x,p.y-e.y);if(d<30){p.hp-=1;if(p.type===6&&p.speed>10){e.hp-=50;if(e.hp<=0)enemies.splice(j,1);}}}
 for(let k=items.length-1;k>=0;k--){let it=items[k];if(Math.hypot(p.x-it.x,p.y-it.y)<30){if(it.type===0)p.hp=Math.min(p.hp+50,p.maxHp);if(it.type===1){p.buffs.speed=1.5;setTimeout(()=>p.buffs.speed=1,5000);}if(it.type===2){p.buffs.damage=1.5;setTimeout(()=>p.buffs.damage=1,5000);}items.splice(k,1);}}
 }
 io.emit('update',{players,bullets,enemies,items,wave,structures,threat});
-},33); // 30 TPS
+},33);
 const PORT=process.env.PORT||3000;
 server.listen(PORT,'0.0.0.0',()=>{console.log(`Server running on port ${PORT}`);});
