@@ -12,8 +12,9 @@ h1{font-size:3em;text-shadow:0 0 10px #0ff;margin-bottom:20px;letter-spacing:2px
 #minimap{position:absolute;top:20px;right:20px;width:150px;height:150px;background:rgba(0,0,0,0.8);border:2px solid #3498db;border-radius:5px;box-shadow:0 0 10px rgba(52,152,219,0.5)}
 .stat-bar{position:absolute;top:20px;left:20px;color:#fff;background:rgba(0,0,0,0.5);padding:10px;border-radius:5px;border-left:4px solid #3498db}
 .stat-bar div{margin:5px 0}
-.vehicle-card{background:rgba(255,255,255,0.05);padding:20px;margin:15px;border-radius:10px;cursor:pointer;width:220px;text-align:center;border:1px solid rgba(255,255,255,0.1);transition:all 0.3s}
-.vehicle-card:hover{background:rgba(52,152,219,0.2);border-color:#3498db;transform:translateY(-5px)}
+.vehicle-card{background:rgba(255,255,255,0.05);padding:20px;margin:15px;border-radius:10px;cursor:pointer;width:220px;text-align:center;border:1px solid rgba(255,255,255,0.1);transition:all 0.3s;font-family:inherit;color:inherit;}
+.vehicle-card:hover,.vehicle-card:focus-visible{background:rgba(52,152,219,0.2);border-color:#3498db;transform:translateY(-5px);outline:none}
+.vehicle-card:focus-visible{box-shadow:0 0 0 3px #3498db}
 .vehicle-preview{width:50px;height:50px;margin:15px auto;border-radius:50%;box-shadow:0 0 15px currentColor}
 #vehicle-list{display:flex;flex-wrap:wrap;justify-content:center;max-width:1000px;overflow-y:auto;max-height:70vh;padding:20px}
 #wave-info{position:absolute;top:20px;left:50%;transform:translateX(-50%);font-size:28px;font-weight:bold;text-shadow:0 0 10px #fff}
