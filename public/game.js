@@ -3,6 +3,7 @@ const canvas=document.getElementById('gameCanvas');const ctx=canvas.getContext('
 const miniCanvas=document.getElementById('minimap');const miniCtx=miniCanvas.getContext('2d');
 const menu=document.getElementById('menu');const gameUi=document.getElementById('game-ui');
 const vehicleList=document.getElementById('vehicle-list');
+const notifArea=document.getElementById('notification-area');
 let width,height;
 function resize(){width=window.innerWidth;height=window.innerHeight;canvas.width=width;canvas.height=height;miniCanvas.width=150;miniCanvas.height=150;}
 window.addEventListener('resize',resize);resize();
@@ -14,7 +15,7 @@ const vehicles=[
 {name:'Bomber',stats:{hp:90,damage:40,speed:3},desc:'Nuke Specialist. Ability: Blast',color:'#9b59b6'}
 ];
 vehicles.forEach((v,i)=>{
-const el=document.createElement('button');el.className='vehicle-card';
+const el=document.createElement('div');el.className='vehicle-card';
 el.innerHTML=`<h3>${v.name}</h3><div class="vehicle-preview" style="background:${v.color};color:${v.color}"></div><p>${v.desc}</p><small>HP:${v.stats.hp} | DMG:${v.stats.damage} | SPD:${v.stats.speed}</small>`;
 el.onclick=()=>startGame(i);
 vehicleList.appendChild(el);
@@ -23,34 +24,46 @@ let myId=null;let players={};let bullets=[];let enemies=[];let obstacles=[];let 
 let mapW=4000;let mapH=4000;
 let camX=0;let camY=0;
 let joystick={active:false,x:0,y:0,angle:0,cx:0,cy:0};
+let shootJoy={active:false,x:0,y:0,angle:0,cx:0,cy:0};
 const joyEl=document.getElementById('joystick');const knobEl=document.getElementById('knob');
+const shootEl=document.getElementById('shoot-joystick');const shootKnob=document.getElementById('shoot-knob');
 const maxR=40;
-joyEl.addEventListener('touchstart',e=>{
+function setupJoystick(el,knob,obj,isShoot){
+el.addEventListener('touchstart',e=>{
 e.preventDefault();
-joystick.active=true;
-const rect=joyEl.getBoundingClientRect();
-joystick.cx=rect.left+rect.width/2;
-joystick.cy=rect.top+rect.height/2;
-updateJoy(e.touches[0]);
+obj.active=true;
+const rect=el.getBoundingClientRect();
+obj.cx=rect.left+rect.width/2;
+obj.cy=rect.top+rect.height/2;
+updateJoy(e.touches[0],obj,knob,isShoot);
 });
-joyEl.addEventListener('touchmove',e=>{e.preventDefault();if(joystick.active)updateJoy(e.touches[0]);});
-joyEl.addEventListener('touchend',e=>{e.preventDefault();joystick.active=false;knobEl.style.transform=`translate(-50%,-50%)`;socket.emit('move',{x:players[myId].x,y:players[myId].y,angle:joystick.angle});});
-function updateJoy(touch){
-let dx=touch.clientX-joystick.cx;let dy=touch.clientY-joystick.cy;
-let dist=Math.hypot(dx,dy);
-let angle=Math.atan2(dy,dx);joystick.angle=angle;
-if(dist>maxR){dx=Math.cos(angle)*maxR;dy=Math.sin(angle)*maxR;}
-knobEl.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`;
+el.addEventListener('touchmove',e=>{e.preventDefault();if(obj.active)updateJoy(e.touches[0],obj,knob,isShoot);});
+el.addEventListener('touchend',e=>{
+e.preventDefault();obj.active=false;knob.style.transform=`translate(-50%,-50%)`;
+if(isShoot)socket.emit('shootInput',{active:false,angle:obj.angle});
+});
 }
-document.getElementById('shoot-btn').addEventListener('touchstart',e=>{e.preventDefault();socket.emit('shoot',{});});
+function updateJoy(touch,obj,knob,isShoot){
+let dx=touch.clientX-obj.cx;let dy=touch.clientY-obj.cy;
+let dist=Math.hypot(dx,dy);
+let angle=Math.atan2(dy,dx);obj.angle=angle;
+if(dist>maxR){dx=Math.cos(angle)*maxR;dy=Math.sin(angle)*maxR;}
+knob.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`;
+if(!isShoot)socket.emit('move',{x:players[myId].x,y:players[myId].y,angle:obj.angle});
+else socket.emit('shootInput',{active:true,angle:obj.angle});
+}
+setupJoystick(joyEl,knobEl,joystick,false);
+setupJoystick(shootEl,shootKnob,shootJoy,true);
 document.getElementById('ability-btn').addEventListener('touchstart',e=>{e.preventDefault();socket.emit('ability',{});});
-document.addEventListener('keydown',e=>{if(e.code==='Space')socket.emit('shoot',{});if(e.code==='ShiftLeft')socket.emit('ability',{});});
+document.addEventListener('keydown',e=>{if(e.code==='Space')socket.emit('shootInput',{active:true,angle:players[myId].turretAngle});if(e.code==='ShiftLeft')socket.emit('ability',{});});
+document.addEventListener('keyup',e=>{if(e.code==='Space')socket.emit('shootInput',{active:false,angle:players[myId].turretAngle});});
 let keys={};
 document.addEventListener('keydown',e=>keys[e.key]=true);
 document.addEventListener('keyup',e=>keys[e.key]=false);
 function startGame(idx){
 menu.style.display='none';gameUi.style.display='block';
-socket.emit('joinGame',{type:idx,stats:vehicles[idx].stats});
+let allyCount=parseInt(document.getElementById('copilot-count').value);
+socket.emit('joinGame',{type:idx,stats:vehicles[idx].stats,allyCount});
 }
 socket.on('init',data=>{myId=data.id;players=data.players;obstacles=data.obstacles;mapW=data.map.w;mapH=data.map.h;items=data.items;});
 socket.on('updatePlayers',p=>players=p);
@@ -61,31 +74,50 @@ document.getElementById('hp-val').innerText=Math.floor(players[myId].hp);
 document.getElementById('score-val').innerText=players[myId].score;
 }
 });
+socket.on('notification',msg=>{
+let el=document.createElement('div');el.className='notification';el.innerText=msg;
+notifArea.appendChild(el);setTimeout(()=>el.remove(),3000);
+});
 socket.on('gameOver',score=>{alert('Game Over! Score: '+score);location.reload();});
-function drawVehicle(ctx,color,angle){
+function drawVehicle(ctx,color,angle,turretAngle){
+ctx.save();
 ctx.rotate(angle);
 ctx.fillStyle=color;
-ctx.shadowColor=color;ctx.shadowBlur=15;
-ctx.beginPath();ctx.roundRect(-20,-15,40,30,5);ctx.fill();
-ctx.shadowBlur=0;
-ctx.fillStyle='#111';
-ctx.beginPath();ctx.arc(0,0,12,0,Math.PI*2);ctx.fill();
+ctx.shadowColor=color;ctx.shadowBlur=10;
+// Chassis
+ctx.beginPath();
+ctx.moveTo(25,10);ctx.lineTo(25,18);ctx.lineTo(-25,18);ctx.lineTo(-25,10); // Right tread
+ctx.moveTo(25,-10);ctx.lineTo(25,-18);ctx.lineTo(-25,-18);ctx.lineTo(-25,-10); // Left tread
+ctx.fillStyle='#555';ctx.fill();
+ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(-20,-12,40,24,5);ctx.fill();
+ctx.restore();
+// Turret
+ctx.save();
+ctx.rotate(turretAngle);
+ctx.fillStyle='#333';
+ctx.beginPath();ctx.arc(0,0,10,0,Math.PI*2);ctx.fill();
 ctx.fillStyle=color;
-ctx.fillRect(0,-4,25,8);
+ctx.fillRect(0,-4,30,8);
+ctx.restore();
+ctx.shadowBlur=0;
 }
 function drawEnemy(ctx,type,angle){
 ctx.rotate(angle);
-if(type===0){ // Rusher
-ctx.fillStyle='#c0392b';ctx.shadowColor='#c0392b';ctx.shadowBlur=10;
-ctx.beginPath();ctx.moveTo(20,0);ctx.lineTo(-15,15);ctx.lineTo(-5,0);ctx.lineTo(-15,-15);ctx.fill();
-}else if(type===1){ // Shooter
-ctx.fillStyle='#27ae60';ctx.shadowColor='#27ae60';ctx.shadowBlur=10;
-ctx.beginPath();ctx.moveTo(15,0);ctx.lineTo(-15,15);ctx.lineTo(-15,-15);ctx.fill();
-ctx.fillStyle='#2ecc71';ctx.fillRect(0,-3,20,6);
-}else{ // Ambusher
-ctx.fillStyle='#8e44ad';ctx.shadowColor='#8e44ad';ctx.shadowBlur=10;
-ctx.beginPath();ctx.arc(0,0,15,0,Math.PI*2);ctx.fill();
-ctx.strokeStyle='#9b59b6';ctx.lineWidth=2;ctx.stroke();
+ctx.shadowBlur=15;
+if(type===0){ // Rusher - Bug like
+ctx.fillStyle='#c0392b';ctx.shadowColor='#c0392b';
+ctx.beginPath();ctx.ellipse(0,0,20,10,0,0,Math.PI*2);ctx.fill();
+ctx.fillStyle='#e74c3c';ctx.beginPath();ctx.arc(10,-5,3,0,Math.PI*2);ctx.arc(10,5,3,0,Math.PI*2);ctx.fill();
+}else if(type===1){ // Shooter - Drone
+ctx.fillStyle='#27ae60';ctx.shadowColor='#27ae60';
+ctx.beginPath();ctx.moveTo(15,0);ctx.lineTo(-10,15);ctx.lineTo(-5,0);ctx.lineTo(-10,-15);ctx.fill();
+ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill();
+}else{ // Ambusher - Spiked
+ctx.fillStyle='#8e44ad';ctx.shadowColor='#8e44ad';
+ctx.beginPath();
+for(let i=0;i<8;i++){let a=Math.PI*2/8*i;let r=i%2==0?20:10;ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);}
+ctx.closePath();ctx.fill();
+ctx.fillStyle='#000';ctx.beginPath();ctx.arc(0,0,6,0,Math.PI*2);ctx.fill();
 }
 ctx.shadowBlur=0;
 }
@@ -102,23 +134,20 @@ for(let y=0;y<mapH;y+=100){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(mapW,y);ct
 ctx.strokeStyle='#3498db';ctx.lineWidth=5;ctx.strokeRect(0,0,mapW,mapH);
 ctx.fillStyle='#2c3e50';obstacles.forEach(o=>{
 ctx.shadowColor='#000';ctx.shadowBlur=10;
-ctx.fillRect(o.x,o.y,o.w,o.h);
-ctx.shadowBlur=0;
+ctx.fillRect(o.x,o.y,o.w,o.h);ctx.shadowBlur=0;
 ctx.fillStyle='#34495e';ctx.fillRect(o.x+5,o.y+5,o.w-10,o.h-10);ctx.fillStyle='#2c3e50';
 });
 items.forEach(i=>{
 ctx.fillStyle=i.type===0?'#e74c3c':i.type===1?'#3498db':'#f1c40f';
 ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=20;
-ctx.beginPath();ctx.arc(i.x,i.y,12,0,Math.PI*2);ctx.fill();
-ctx.shadowBlur=0;
+ctx.beginPath();ctx.arc(i.x,i.y,12,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
 ctx.fillStyle='#fff';ctx.font='bold 10px Orbitron';ctx.textAlign='center';
 ctx.fillText(i.type===0?'HP':i.type===1?'SPD':'DMG',i.x,i.y+4);
 });
 bullets.forEach(b=>{
 ctx.fillStyle=b.owner==='enemy'?'#e74c3c':'#f1c40f';
 ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=10;
-ctx.beginPath();ctx.arc(b.x,b.y,6,0,Math.PI*2);ctx.fill();
-ctx.shadowBlur=0;
+ctx.beginPath();ctx.arc(b.x,b.y,6,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
 });
 enemies.forEach(e=>{
 ctx.save();ctx.translate(e.x,e.y);
@@ -128,7 +157,7 @@ ctx.restore();
 for(let id in players){
 let p=players[id];
 ctx.save();ctx.translate(p.x,p.y);
-drawVehicle(ctx,id===myId?'#3498db':(vehicles[p.type]?vehicles[p.type].color:'#aaa'),p.angle);
+drawVehicle(ctx,id===myId?'#3498db':p.isBot?'#2ecc71':(vehicles[p.type]?vehicles[p.type].color:'#aaa'),p.angle,p.turretAngle);
 ctx.restore();
 ctx.fillStyle='#fff';ctx.font='12px Orbitron';ctx.textAlign='center';ctx.fillText(`HP:${Math.floor(p.hp)}`,p.x,p.y-35);
 }
@@ -139,7 +168,7 @@ let s=150/Math.max(mapW,mapH);
 miniCtx.fillStyle='#34495e';obstacles.forEach(o=>miniCtx.fillRect(o.x*s,o.y*s,o.w*s,o.h*s));
 miniCtx.fillStyle='#e74c3c';enemies.forEach(e=>miniCtx.fillRect(e.x*s,e.y*s,2,2));
 miniCtx.fillStyle='#f1c40f';items.forEach(i=>miniCtx.fillRect(i.x*s,i.y*s,3,3));
-for(let id in players){let p=players[id];miniCtx.fillStyle=id===myId?'#3498db':'#fff';miniCtx.fillRect(p.x*s,p.y*s,3,3);}
+for(let id in players){let p=players[id];miniCtx.fillStyle=id===myId?'#3498db':p.isBot?'#2ecc71':'#fff';miniCtx.fillRect(p.x*s,p.y*s,3,3);}
 let spd=me.speed*(me.buffs?me.buffs.speed:1);
 if(joystick.active){
 let dx=Math.cos(joystick.angle)*spd;let dy=Math.sin(joystick.angle)*spd;
