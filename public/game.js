@@ -72,6 +72,26 @@ if(isShoot) socket.emit('shootInput',{active:true,angle:obj.angle});
 joyEl.addEventListener(evt,e=>handleTouch(e,joystick,knobEl,false));
 shootEl.addEventListener(evt,e=>handleTouch(e,shootJoy,shootKnob,true));
 });
+// Mouse Support
+function handleMouse(e,obj,knob,isShoot){
+e.preventDefault();
+if(e.type==='mousedown'){
+obj.active=true;obj.id='mouse';
+let r=e.target.getBoundingClientRect();
+obj.cx=r.left+r.width/2;obj.cy=r.top+r.height/2;
+updateJoy(e,obj,knob,isShoot);
+}else if(obj.active && obj.id==='mouse'){
+if(e.type==='mousemove') updateJoy(e,obj,knob,isShoot);
+if(e.type==='mouseup' || e.type==='mouseleave'){
+obj.active=false;obj.id=null;knob.style.transform=`translate(-50%,-50%)`;
+if(isShoot) socket.emit('shootInput',{active:false,angle:obj.angle});
+}
+}
+}
+['mousedown','mousemove','mouseup','mouseleave'].forEach(evt=>{
+joyEl.addEventListener(evt,e=>handleMouse(e,joystick,knobEl,false));
+shootEl.addEventListener(evt,e=>handleMouse(e,shootJoy,shootKnob,true));
+});
 document.getElementById('ability-btn').addEventListener('touchstart',e=>{e.preventDefault();socket.emit('ability',{});});
 document.addEventListener('keydown',e=>{if(e.code==='Space')socket.emit('shootInput',{active:true,angle:players[myId].turretAngle});if(e.code==='ShiftLeft')socket.emit('ability',{});});
 document.addEventListener('keyup',e=>{if(e.code==='Space')socket.emit('shootInput',{active:false,angle:players[myId].turretAngle});});
@@ -160,7 +180,6 @@ if(p.reactive > 0){
 }
 
 ctx.restore();
-// Turret
 ctx.save();ctx.rotate(turretAngle);
 ctx.fillStyle=type===5?'#555':color;ctx.beginPath();ctx.arc(0,0,10,0,Math.PI*2);ctx.fill();ctx.stroke();
 ctx.fillStyle='#222';ctx.beginPath();ctx.rect(0,-4,32,8);ctx.fill();ctx.stroke(); // Barrel
@@ -265,7 +284,6 @@ if(p.stress > 0){
 }
 }
 ctx.restore();
-// Minimap
 miniCtx.clearRect(0,0,150,150);
 miniCtx.fillStyle='rgba(0,0,0,0.5)';miniCtx.fillRect(0,0,150,150);
 let s=150/(mapRadius*2.2);
