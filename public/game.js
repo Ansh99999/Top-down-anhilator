@@ -5,6 +5,10 @@ const menu=document.getElementById('menu');const gameUi=document.getElementById(
 const vehicleList=document.getElementById('vehicle-list');
 const notifArea=document.getElementById('notification-area');
 const threatFill=document.getElementById('threat-fill');
+const eventBanner=document.getElementById('event-banner');
+const eventName=document.getElementById('event-name');
+const eventDesc=document.getElementById('event-desc');
+
 let width,height;
 function resize(){width=window.innerWidth;height=window.innerHeight;canvas.width=width;canvas.height=height;}
 window.addEventListener('resize',resize);resize();
@@ -24,7 +28,7 @@ el.innerHTML=`<h3>${v.name}</h3><div class="vehicle-preview" style="background:$
 el.onclick=()=>startGame(i);
 vehicleList.appendChild(el);
 });
-let myId=null;let players={};let bullets=[];let enemies=[];let obstacles=[];let items=[];let structures=[];
+let myId=null;let players={};let bullets=[];let enemies=[];let obstacles=[];let items=[];let structures=[];let destructibles=[];
 let mapRadius=2000;
 let camX=0;let camY=0;
 let joystick={active:false,id:null,cx:0,cy:0,angle:0};
@@ -94,9 +98,9 @@ let allyCount=parseInt(document.getElementById('copilot-count').value);
 let mapId=parseInt(document.getElementById('map-select').value);
 socket.emit('joinGame',{type:idx,stats:vehicles[idx].stats,allyCount,mapId});
 }
-socket.on('init',data=>{myId=data.id;players=data.players;obstacles=data.obstacles;mapRadius=data.mapRadius;items=data.items;structures=data.structures;initMapCanvas();});
+socket.on('init',data=>{myId=data.id;players=data.players;obstacles=data.obstacles;destructibles=data.destructibles;mapRadius=data.mapRadius;items=data.items;structures=data.structures;initMapCanvas();});
 socket.on('updatePlayers',p=>players=p);
-socket.on('update',data=>{players=data.players;bullets=data.bullets;enemies=data.enemies;items=data.items;structures=data.structures;
+socket.on('update',data=>{players=data.players;bullets=data.bullets;enemies=data.enemies;items=data.items;structures=data.structures;destructibles=data.destructibles;
 document.getElementById('wave-val').innerText=data.wave;
 threatFill.style.width=Math.min(100,data.threat)+'%';
 if(players[myId]){
@@ -112,6 +116,10 @@ let el=document.createElement('div');el.className='notification';el.innerText=ms
 notifArea.appendChild(el);setTimeout(()=>el.remove(),3000);
 });
 socket.on('gameOver',score=>{alert('Game Over! Score: '+score);location.reload();});
+socket.on('explosion',data=>{addParticle(data.x,data.y,'#e74c3c');shakeX=10;shakeY=10;});
+socket.on('eventStart',ev=>{eventBanner.style.display='block';eventName.innerText=ev.name;eventDesc.innerText=ev.desc;});
+socket.on('eventEnd',()=>{eventBanner.style.display='none';});
+
 // Terrain Generation
 let mapCanvas=document.createElement('canvas');let mapCtx=mapCanvas.getContext('2d');
 function initMapCanvas(){
@@ -151,8 +159,9 @@ ctx.fillStyle=type===5?'#555':color;ctx.beginPath();ctx.arc(0,0,10,0,Math.PI*2);
 ctx.fillStyle='#222';ctx.beginPath();ctx.rect(0,-4,32,8);ctx.fill();ctx.stroke(); // Barrel
 ctx.restore();
 }
-function drawEnemy(ctx,type,angle){
+function drawEnemy(ctx,e,angle){
 ctx.rotate(angle);ctx.lineWidth=2;ctx.strokeStyle='#000';
+let type=e.type;
 if(type===0){ // Rusher
 ctx.fillStyle='#c0392b';ctx.beginPath();ctx.moveTo(15,0);ctx.lineTo(-10,10);ctx.lineTo(-5,0);ctx.lineTo(-10,-10);ctx.fill();ctx.stroke();
 }else if(type===1){ // Shooter
@@ -164,9 +173,15 @@ ctx.fillStyle='#333';ctx.beginPath();ctx.arc(0,0,15,0,Math.PI*2);ctx.fill();
 }else{ // Ambusher
 ctx.fillStyle='#8e44ad';ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-10,10);ctx.lineTo(-10,-10);ctx.fill();ctx.stroke();
 }
+// Elite Visuals
+if(e.modifiers && e.modifiers.length>0){
+  ctx.strokeStyle='#f1c40f';ctx.lineWidth=4;ctx.stroke();
+  if(e.modifiers.includes('ARMORED')){ctx.strokeStyle='#95a5a6';ctx.stroke();}
+  if(e.modifiers.includes('EXPLOSIVE')){ctx.fillStyle='#e67e22';ctx.fill();}
+}
 }
 let particles=[];
-function addParticle(x,y,c){for(let i=0;i<5;i++)particles.push({x,y,vx:Math.random()*4-2,vy:Math.random()*4-2,life:20,c});}
+function addParticle(x,y,c){for(let i=0;i<10;i++)particles.push({x,y,vx:Math.random()*10-5,vy:Math.random()*10-5,life:30,c});}
 let shakeX=0,shakeY=0;
 function draw(){
 // Background
@@ -188,6 +203,15 @@ ctx.strokeStyle='#115e30';ctx.lineWidth=4;ctx.stroke();
 // Tree Detail
 ctx.fillStyle='#27ae60';ctx.beginPath();ctx.arc(o.x-o.r/3,o.y-o.r/3,o.r/2,0,Math.PI*2);ctx.fill();
 });
+// Destructibles
+destructibles.forEach(d=>{
+ctx.fillStyle='#d35400';ctx.fillRect(d.x-d.r,d.y-d.r,d.r*2,d.r*2);
+ctx.strokeStyle='#a04000';ctx.lineWidth=3;ctx.strokeRect(d.x-d.r,d.y-d.r,d.r*2,d.r*2);
+// Cracks
+if(d.hp<d.maxHp/2){
+ctx.beginPath();ctx.moveTo(d.x-10,d.y-10);ctx.lineTo(d.x+5,d.y+5);ctx.lineTo(d.x+10,d.y-5);ctx.stroke();
+}
+});
 ctx.shadowBlur=0;
 items.forEach(i=>{
 ctx.fillStyle=i.type===0?'#e74c3c':i.type===1?'#3498db':'#f1c40f';
@@ -207,12 +231,12 @@ ctx.fill();
 // Particles
 particles.forEach((p,i)=>{
 p.x+=p.vx;p.y+=p.vy;p.life--;
-ctx.fillStyle=p.c;ctx.globalAlpha=p.life/20;ctx.fillRect(p.x,p.y,3,3);ctx.globalAlpha=1;
+ctx.fillStyle=p.c;ctx.globalAlpha=p.life/30;ctx.fillRect(p.x,p.y,4,4);ctx.globalAlpha=1;
 if(p.life<=0)particles.splice(i,1);
 });
 enemies.forEach(e=>{
 ctx.save();ctx.translate(e.x,e.y);
-drawEnemy(ctx,e.type,Math.atan2(players[myId].y-e.y,players[myId].x-e.x));
+drawEnemy(ctx,e,Math.atan2(players[myId].y-e.y,players[myId].x-e.x));
 ctx.restore();
 });
 for(let id in players){
@@ -231,6 +255,7 @@ let s=150/(mapRadius*2.2);
 miniCtx.translate(75,75);
 miniCtx.fillStyle='#c0392b';enemies.forEach(e=>miniCtx.fillRect(e.x*s,e.y*s,3,3));
 miniCtx.fillStyle='#3498db';miniCtx.fillRect(me.x*s,me.y*s,4,4);
+miniCtx.fillStyle='#d35400';destructibles.forEach(d=>miniCtx.fillRect(d.x*s,d.y*s,3,3));
 miniCtx.setTransform(1,0,0,1,0,0);
 // Movement Logic
 let spd=me.speed*(me.buffs?me.buffs.speed:1);
@@ -248,6 +273,7 @@ let nx=me.x+Math.cos(moveAngle)*spd;let ny=me.y+Math.sin(moveAngle)*spd;
 let hit=false;
 if(Math.hypot(nx,ny)>mapRadius-25) hit=true;
 for(let o of obstacles){if(Math.hypot(nx-o.x,ny-o.y)<o.r+25)hit=true;}
+for(let d of destructibles){if(Math.hypot(nx-d.x,ny-d.y)<d.r+25)hit=true;}
 if(!hit){socket.emit('move',{x:nx,y:ny,angle:moveAngle});me.x=nx;me.y=ny;me.angle=moveAngle;}
 }
 requestAnimationFrame(draw);

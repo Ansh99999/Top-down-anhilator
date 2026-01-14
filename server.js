@@ -1,11 +1,11 @@
 const express=require('express');const app=express();const http=require('http');const server=http.createServer(app);const {Server}=require("socket.io");const io=new Server(server);const path=require('path');
 app.use(express.static(path.join(__dirname,'public')));
-let players={};let bullets=[];let enemies=[];let obstacles=[];let items=[];let structures=[];
+let players={};let bullets=[];let enemies=[];let obstacles=[];let items=[];let structures=[];let destructibles=[];
 // Radius based maps
 const MAP_SIZES={0:2000,1:2500,2:1500}; // 0:Jungle, 1:River, 2:Mountain
 let currentMap=0;
 function generateObstacles(mapId){
-obstacles=[];
+obstacles=[];destructibles=[];
 let r=MAP_SIZES[mapId];
 let count=mapId===0?120:mapId===1?60:40;
 for(let i=0;i<count;i++){
@@ -18,16 +18,43 @@ for(let i=0;i<count;i++){
     r:30+Math.random()*60 // Radius of tree
   });
 }
+// Generate destructibles
+let dCount=20;
+for(let i=0;i<dCount;i++){
+  let dist=200+Math.random()*(r-200);let ang=Math.random()*Math.PI*2;
+  destructibles.push({id:Math.random(),x:Math.cos(ang)*dist,y:Math.sin(ang)*dist,r:25,hp:100,maxHp:100});
+}
 }
 generateObstacles(0);
-let wave=1;let lastEnemySpawn=0;let lastItemSpawn=0;let threat=0;
+let wave=1;let threat=0;
+let waveState={total:10,spawned:0,active:true};
+let lastEnemySpawn=0;let lastItemSpawn=0;
 let adapt={speed:0,stat:0,kills:0};
 // Ability Cooldowns (ms)
 const ABILITY_COOLDOWNS={0:5000,1:10000,2:15000,3:20000,4:10000,5:30000,6:8000,7:20000};
+// Global Events
+let activeEvent=null;let eventTimer=0;
+const EVENTS=[
+  {name:'FRENZY',duration:15000,desc:'Enemies move faster!'},
+  {name:'POWER SURGE',duration:10000,desc:'Players deal double damage!'},
+  {name:'DARKNESS',duration:20000,desc:'Visibility reduced!'}
+];
+function checkEvents(){
+  if(activeEvent){
+    if(Date.now()>activeEvent.endTime){
+      activeEvent=null;io.emit('eventEnd');
+    }
+  }else if(Math.random()<0.0005 && Object.keys(players).length>0){ // Chance per tick
+    let ev=EVENTS[Math.floor(Math.random()*EVENTS.length)];
+    activeEvent={...ev,endTime:Date.now()+ev.duration};
+    io.emit('eventStart',activeEvent);
+  }
+}
+
 io.on('connection',(socket)=>{
 console.log('User connected:',socket.id);
 socket.on('joinGame',(data)=>{
-if(data.mapId!==undefined && data.mapId!==currentMap){currentMap=data.mapId;generateObstacles(currentMap);wave=1;enemies=[];items=[];structures=[];}
+if(data.mapId!==undefined && data.mapId!==currentMap){currentMap=data.mapId;generateObstacles(currentMap);wave=1;waveState={total:10,spawned:0,active:true};enemies=[];items=[];structures=[];}
 let stats=data.stats;
 let fireRate=10;
 if(data.type===0) fireRate=5;if(data.type===3 || data.type===5) fireRate=20;if(data.type===6) fireRate=8;
@@ -50,13 +77,11 @@ isShooting:false,fireCooldown:0,fireRate:15,
 lastAbility:0,abilityCd:10000,state:'follow',targetId:null
 };
 }
-socket.emit('init',{id:socket.id,players,obstacles,mapRadius:MAP_SIZES[currentMap],wave,items,structures});
+socket.emit('init',{id:socket.id,players,obstacles,destructibles,mapRadius:MAP_SIZES[currentMap],wave,items,structures});
+if(activeEvent) socket.emit('eventStart',activeEvent);
 io.emit('updatePlayers',players);
 });
 socket.on('move',(data)=>{if(players[socket.id]){
-  // Trust client for intention, but we will clamp in loop.
-  // For precise physics, we'd take input vectors, but for this laggy-proof approach,
-  // we take pos and validate.
   players[socket.id].x=data.x;players[socket.id].y=data.y;players[socket.id].angle=data.angle;
 }});
 socket.on('shootInput',(data)=>{if(players[socket.id]){players[socket.id].turretAngle=data.angle;players[socket.id].isShooting=data.active;}});
@@ -81,10 +106,8 @@ if(p.type===6){p.speed=18;setTimeout(()=>p.speed=8,2500);} // Speed
 if(p.type===7){structures.push({id:Math.random(),x:p.x,y:p.y,hp:150,owner:p.id,life:1000});} // Sentry
 }
 function checkCollision(x,y,r){
-for(let o of obstacles){
-  let dist=Math.hypot(x-o.x,y-o.y);
-  if(dist<o.r+r) return o;
-}
+for(let o of obstacles){let dist=Math.hypot(x-o.x,y-o.y);if(dist<o.r+r) return o;}
+for(let d of destructibles){let dist=Math.hypot(x-d.x,y-d.y);if(dist<d.r+r) return d;}
 return null;
 }
 function resolveCollision(p,radius){
@@ -95,7 +118,7 @@ if(dist>mapR-radius){
   p.x=Math.cos(ang)*(mapR-radius);
   p.y=Math.sin(ang)*(mapR-radius);
 }
-for(let o of obstacles){
+[...obstacles,...destructibles].forEach(o=>{
   let dx=p.x-o.x;let dy=p.y-o.y;
   let d=Math.hypot(dx,dy);
   let minDist=o.r+radius;
@@ -105,21 +128,22 @@ for(let o of obstacles){
     p.x+=dx/d*push;
     p.y+=dy/d*push;
   }
-}
+});
 }
 setInterval(()=>{
 let mapR=MAP_SIZES[currentMap];
+checkEvents();
 let totalSpeed=0,count=0;
 for(let id in players){if(!players[id].isBot){totalSpeed+=players[id].speed;count++;}}
 if(count>0) adapt.speed=totalSpeed/count;
 if(threat>0) threat-=0.05;
 for(let id in players){
 let p=players[id];
-// Physics resolution for players
-resolveCollision(p,25); // Assume player radius 25
+resolveCollision(p,25);
 if(p.fireCooldown>0) p.fireCooldown--;
 if(p.isShooting && p.fireCooldown<=0){
 let dmg=p.damage*p.buffs.damage;
+if(activeEvent && activeEvent.name==='POWER SURGE') dmg*=2;
 if(p.type===6) dmg+=p.speed;
 bullets.push({id:Math.random(),owner:p.id,x:p.x,y:p.y,vx:Math.cos(p.turretAngle)*20,vy:Math.sin(p.turretAngle)*20,damage:dmg,life:100});
 p.fireCooldown=p.fireRate;
@@ -136,26 +160,58 @@ if(target){let a=Math.atan2(target.y-s.y,target.x-s.x);bullets.push({id:Math.ran
 structures=structures.filter(s=>s.life>0 && s.hp>0);
 bullets.forEach(b=>{
 b.x+=b.vx;b.y+=b.vy;b.life--;
-// Bullet vs Obstacle
-if(checkCollision(b.x,b.y,5)) b.life=0;
+let hitObj = checkCollision(b.x,b.y,5);
+if(hitObj){
+  b.life=0;
+  if(hitObj.hp!==undefined){ // Destructible
+    hitObj.hp-=b.damage;
+  }
+}
 });
 bullets=bullets.filter(b=>b.life>0);
-if(Date.now()-lastEnemySpawn>2000 && enemies.length<wave*10 + threat/5){
+// Destructibles Logic
+for(let i=destructibles.length-1;i>=0;i--){
+  if(destructibles[i].hp<=0){
+    // Explosion
+    let d=destructibles[i];
+    io.emit('explosion',{x:d.x,y:d.y});
+    // Area Damage
+    for(let id in players){if(Math.hypot(players[id].x-d.x,players[id].y-d.y)<100) players[id].hp-=30;}
+    enemies.forEach(e=>{if(Math.hypot(e.x-d.x,e.y-d.y)<100) e.hp-=50;});
+    destructibles.splice(i,1);
+  }
+}
+// Spawn Logic
+let spawnDelay=Math.max(500, 2000 - wave*100);
+if(Date.now()-lastEnemySpawn>spawnDelay && waveState.spawned<waveState.total){
 let r=Math.random();
-let type=0; // 0:Rusher, 1:Shooter, 2:Ambusher, 3:Tank
-if(adapt.speed>6 || threat>50) type=1;
-if(threat>80) type=3;
+let type=0;
+if(adapt.speed>6 || threat>50 || wave>3) type=1;
+if(threat>80 || wave>5) type=3;
 if(Math.random()<0.2 + threat/200) type=2;
 let ang=Math.random()*Math.PI*2;
-let dist=mapR-50; // Spawn at edge
-enemies.push({
+let dist=mapR-50;
+let enemy={
   id:Math.random(),x:Math.cos(ang)*dist,y:Math.sin(ang)*dist,
   type:type,
   hp:20+wave*5+(type===3?100:0),
+  maxHp:20+wave*5+(type===3?100:0),
   speed:type===0?5:type===1?3:type===3?1.5:4,
   state:'chase',stateTimer:0,
-  targetId:null
-});
+  targetId:null,
+  modifiers:[]
+};
+// Elite System
+if(wave>2 && Math.random()<(0.1 + wave*0.05)){
+  let mods=['FAST','ARMORED','EXPLOSIVE'];
+  let mod=mods[Math.floor(Math.random()*mods.length)];
+  enemy.modifiers.push(mod);
+  enemy.isElite=true;
+  if(mod==='FAST') enemy.speed*=1.5;
+  if(mod==='ARMORED') {enemy.hp*=2;enemy.maxHp*=2;}
+}
+enemies.push(enemy);
+waveState.spawned++;
 lastEnemySpawn=Date.now();
 }
 if(Date.now()-lastItemSpawn>10000 && items.length<10){
@@ -170,10 +226,9 @@ let target=null;let minD=Infinity;
 for(let id in players){
   let p=players[id];
   let d=Math.hypot(p.x-e.x,p.y-e.y);
-  if(p.type===5)d/=2; // Iron Fortress less aggro
+  if(p.type===5)d/=2;
   if(d<minD){minD=d;target=p;}
 }
-// 2. State Machine
 e.stateTimer--;
 if(e.stateTimer<=0){
   if(minD<200 && e.type===1) e.state='flee';
@@ -183,20 +238,21 @@ if(e.stateTimer<=0){
   e.stateTimer=20+Math.random()*40;
 }
 let dx=0,dy=0;
+let spd=e.speed;
+if(activeEvent && activeEvent.name==='FRENZY') spd*=1.5;
 if(target && minD<1500){
   let tx=target.x-e.x;let ty=target.y-e.y;
   let ang=Math.atan2(ty,tx);
   if(e.state==='chase'){
-    dx=Math.cos(ang)*e.speed;dy=Math.sin(ang)*e.speed;
-    if(e.type===0) {dx+=Math.cos(Date.now()/200)*2;dy+=Math.sin(Date.now()/200)*2;} // Weave
+    dx=Math.cos(ang)*spd;dy=Math.sin(ang)*spd;
+    if(e.type===0) {dx+=Math.cos(Date.now()/200)*2;dy+=Math.sin(Date.now()/200)*2;}
   }else if(e.state==='strafe'){
-    dx=Math.cos(ang+Math.PI/2)*e.speed;dy=Math.sin(ang+Math.PI/2)*e.speed;
+    dx=Math.cos(ang+Math.PI/2)*spd;dy=Math.sin(ang+Math.PI/2)*spd;
     if(Math.random()<0.05 && minD<500)bullets.push({id:Math.random(),owner:'enemy',x:e.x,y:e.y,vx:Math.cos(ang)*10,vy:Math.sin(ang)*10,damage:5+wave,life:100});
   }else if(e.state==='flee'){
-    dx=-Math.cos(ang)*e.speed;dy=-Math.sin(ang)*e.speed;
+    dx=-Math.cos(ang)*spd;dy=-Math.sin(ang)*spd;
   }
 }else{
-   // Wander
    dx=Math.cos(e.id)*1;dy=Math.sin(e.id)*1;
 }
 e.x+=dx;e.y+=dy;
@@ -205,19 +261,16 @@ resolveCollision(e,15);
 for(let id in players){
 let bot=players[id];
 if(bot.isBot){
-// Bot Logic
 let owner=players[bot.owner];
 if(!owner){delete players[id];continue;}
 let target=null;let minD=Infinity;
 enemies.forEach(e=>{let d=Math.hypot(e.x-bot.x,e.y-bot.y);if(d<minD){minD=d;target=e;}});
 if(target && minD<600){
-  // Combat Mode
   let ang=Math.atan2(target.y-bot.y,target.x-bot.x);
   bot.turretAngle=ang;bot.isShooting=true;
   if(minD>300){bot.x+=Math.cos(ang)*bot.speed;bot.y+=Math.sin(ang)*bot.speed;}
-  else{bot.x+=Math.cos(ang+Math.PI/2)*bot.speed;bot.y+=Math.sin(ang+Math.PI/2)*bot.speed;} // Strafe
+  else{bot.x+=Math.cos(ang+Math.PI/2)*bot.speed;bot.y+=Math.sin(ang+Math.PI/2)*bot.speed;}
 }else{
-  // Follow Mode
   bot.isShooting=false;
   let dToOwner=Math.hypot(owner.x-bot.x,owner.y-bot.y);
   if(dToOwner>150){
@@ -226,7 +279,6 @@ if(target && minD<600){
     bot.angle=ang;
   }
 }
-// Separation
 for(let oid in players){
 if(id!==oid && players[oid].isBot){
 let dx=bot.x-players[oid].x;let dy=bot.y-players[oid].y;let d=Math.hypot(dx,dy);
@@ -254,10 +306,23 @@ for(let j=structures.length-1;j>=0;j--){let s=structures[j];if(Math.hypot(b.x-s.
 for(let j=enemies.length-1;j>=0;j--){
 let e=enemies[j];
 if(Math.hypot(b.x-e.x,b.y-e.y)<32){
-e.hp-=b.damage;bullets.splice(i,1);
+let reduction=e.modifiers.includes('ARMORED')?0.5:1;
+e.hp-=b.damage*reduction;
+bullets.splice(i,1);
 if(e.hp<=0){
-enemies.splice(j,1);let shooter=players[b.owner];if(shooter){shooter.score+=10;threat+=2;}
-if(enemies.length===0){wave++;io.emit('wave',wave);}
+enemies.splice(j,1);
+if(e.modifiers.includes('EXPLOSIVE')){
+  io.emit('explosion',{x:e.x,y:e.y});
+  for(let id in players){if(Math.hypot(players[id].x-e.x,players[id].y-e.y)<150)players[id].hp-=40;}
+}
+let shooter=players[b.owner];if(shooter){shooter.score+=10+(e.isElite?20:0);threat+=2;}
+// Wave Progression
+if(waveState.spawned>=waveState.total && enemies.length===0){
+  wave++;
+  waveState.total=10 + wave*5;
+  waveState.spawned=0;
+  io.emit('wave',wave);
+}
 }break;
 }
 }
@@ -268,7 +333,7 @@ let p=players[id];
 for(let j=enemies.length-1;j>=0;j--){let e=enemies[j];let d=Math.hypot(p.x-e.x,p.y-e.y);if(d<30){p.hp-=1;if(p.type===6&&p.speed>10){e.hp-=50;if(e.hp<=0)enemies.splice(j,1);}}}
 for(let k=items.length-1;k>=0;k--){let it=items[k];if(Math.hypot(p.x-it.x,p.y-it.y)<30){if(it.type===0)p.hp=Math.min(p.hp+50,p.maxHp);if(it.type===1){p.buffs.speed=1.5;setTimeout(()=>p.buffs.speed=1,5000);}if(it.type===2){p.buffs.damage=1.5;setTimeout(()=>p.buffs.damage=1,5000);}items.splice(k,1);}}
 }
-io.emit('update',{players,bullets,enemies,items,wave,structures,threat});
-},33);
+io.emit('update',{players,bullets,enemies,items,wave,structures,destructibles,threat});
+},33); // 30 TPS
 const PORT=process.env.PORT||3000;
 server.listen(PORT,'0.0.0.0',()=>{console.log(`Server running on port ${PORT}`);});
