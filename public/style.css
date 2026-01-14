@@ -13,6 +13,8 @@ h1{font-size:3em;text-shadow:0 0 10px #0ff;margin-bottom:20px;letter-spacing:2px
 .stat-bar{position:absolute;top:20px;left:20px;color:#fff;background:rgba(0,0,0,0.5);padding:10px;border-radius:5px;border-left:4px solid #3498db}
 .stat-bar div{margin:5px 0}
 #wave-info{position:absolute;top:20px;left:50%;transform:translateX(-50%);font-size:28px;font-weight:bold;text-shadow:0 0 10px #fff}
+#threat-bar{position:absolute;top:60px;left:50%;transform:translateX(-50%);width:200px;height:10px;background:#333;border:1px solid #555;border-radius:5px;overflow:hidden}
+#threat-fill{width:0%;height:100%;background:linear-gradient(90deg, #f1c40f, #e74c3c);transition:width 0.5s}
 #notification-area{position:absolute;top:80px;left:50%;transform:translateX(-50%);width:300px;text-align:center;pointer-events:none}
 .notification{background:rgba(231,76,60,0.8);color:#fff;padding:10px;margin-bottom:5px;border-radius:5px;animation:fadeout 3s forwards}
 @keyframes fadeout{0%{opacity:1}80%{opacity:1}100%{opacity:0}}
