@@ -14,7 +14,7 @@ const vehicles=[
 {name:'Bomber',stats:{hp:90,damage:40,speed:3},desc:'Nuke Specialist. Ability: Blast',color:'#9b59b6'}
 ];
 vehicles.forEach((v,i)=>{
-const el=document.createElement('div');el.className='vehicle-card';
+const el=document.createElement('button');el.className='vehicle-card';
 el.innerHTML=`<h3>${v.name}</h3><div class="vehicle-preview" style="background:${v.color};color:${v.color}"></div><p>${v.desc}</p><small>HP:${v.stats.hp} | DMG:${v.stats.damage} | SPD:${v.stats.speed}</small>`;
 el.onclick=()=>startGame(i);
 vehicleList.appendChild(el);
