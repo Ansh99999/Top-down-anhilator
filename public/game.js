@@ -56,8 +56,7 @@ let dist=Math.hypot(dx,dy);
 let angle=Math.atan2(dy,dx);obj.angle=angle;
 if(dist>maxR){dx=Math.cos(angle)*maxR;dy=Math.sin(angle)*maxR;}
 knob.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`;
-if(!isShoot) socket.emit('move',{x:players[myId].x,y:players[myId].y,angle:obj.angle});
-else socket.emit('shootInput',{active:true,angle:obj.angle});
+if(isShoot) socket.emit('shootInput',{active:true,angle:obj.angle});
 }
 ['touchstart','touchmove','touchend','touchcancel'].forEach(evt=>{
 joyEl.addEventListener(evt,e=>handleTouch(e,joystick,knobEl,false));
@@ -182,16 +181,20 @@ let s=150/Math.max(mapW,mapH);
 miniCtx.fillStyle='#145a32';obstacles.forEach(o=>miniCtx.beginPath()||miniCtx.arc((o.x+o.w/2)*s,(o.y+o.h/2)*s,o.w*s/2,0,Math.PI*2)||miniCtx.fill());
 miniCtx.fillStyle='#c0392b';enemies.forEach(e=>miniCtx.fillRect(e.x*s,e.y*s,3,3));
 for(let id in players){let p=players[id];miniCtx.fillStyle=id===myId?'#3498db':p.isBot?'#2ecc71':'#fff';miniCtx.fillRect(p.x*s,p.y*s,4,4);}
-// Joystick Fallback (Keyboard)
-let dx=0,dy=0;
+// Movement Input
 let spd=me.speed*(me.buffs?me.buffs.speed:1);
+let moveAngle=null;
+if(joystick.active){moveAngle=joystick.angle;}
+else{
+let dx=0,dy=0;
 if(keys['ArrowUp']||keys['w'])dy=-1;if(keys['ArrowDown']||keys['s'])dy=1;
 if(keys['ArrowLeft']||keys['a'])dx=-1;if(keys['ArrowRight']||keys['d'])dx=1;
-if(dx!=0||dy!=0){
-let angle=Math.atan2(dy,dx);
-let nx=me.x+Math.cos(angle)*spd;let ny=me.y+Math.sin(angle)*spd;
+if(dx!=0||dy!=0)moveAngle=Math.atan2(dy,dx);
+}
+if(moveAngle!==null){
+let nx=me.x+Math.cos(moveAngle)*spd;let ny=me.y+Math.sin(moveAngle)*spd;
 if(nx>0 && nx<mapW && ny>0 && ny<mapH){
-socket.emit('move',{x:nx,y:ny,angle:angle});me.x=nx;me.y=ny;me.angle=angle;
+socket.emit('move',{x:nx,y:ny,angle:moveAngle});me.x=nx;me.y=ny;me.angle=moveAngle;
 }
 }
 requestAnimationFrame(draw);

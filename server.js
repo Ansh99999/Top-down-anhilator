@@ -142,7 +142,7 @@ structures.forEach((s,idx)=>{if(Math.hypot(b.x-s.x,b.y-s.y)<30){s.hp-=b.damage;b
 }else{
 for(let j=enemies.length-1;j>=0;j--){
 let e=enemies[j];
-if(Math.hypot(b.x-e.x,b.y-e.y)<20){
+if(Math.hypot(b.x-e.x,b.y-e.y)<32){
 e.hp-=b.damage;bullets.splice(i,1);
 if(e.hp<=0){
 enemies.splice(j,1);let shooter=players[b.owner];if(shooter){shooter.score+=10;threat+=2;}
