@@ -11,3 +11,7 @@
 ## 2026-01-15 - Semantic Buttons in Hybrid Controls
 **Learning:** Converting `div` buttons to `<button>` tags requires careful handling of hybrid touch/mouse events. `touchstart` with `preventDefault` suppresses `click`, breaking the button for mouse/keyboard users if a separate `click` listener isn't added.
 **Action:** When refactoring to semantic HTML, always ensure a `click` listener exists for mouse/keyboard activation and explicitly reset User Agent styles (border, background, padding) to match the original design.
+
+## 2024-10-27 - DOM Reuse for Focus Management
+**Learning:** In dynamic game UIs (like vehicle selection), re-rendering the entire list on every interaction destroys the DOM node holding keyboard focus, disorienting screen reader and keyboard users.
+**Action:** Instead of clearing and rebuilding the DOM, update attributes (`aria-pressed`, classes) on existing nodes. This preserves focus and provides a smoother experience.
