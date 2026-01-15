@@ -110,6 +110,7 @@ joyEl.addEventListener(evt,e=>handleMouse(e,joystick,knobEl,false));
 shootEl.addEventListener(evt,e=>handleMouse(e,shootJoy,shootKnob,true));
 });
 document.getElementById('ability-btn').addEventListener('touchstart',e=>{e.preventDefault();socket.emit('ability',{});});
+document.getElementById('ability-btn').addEventListener('click',e=>{socket.emit('ability',{});});
 document.addEventListener('keydown',e=>{if(e.code==='Space')socket.emit('shootInput',{active:true,angle:players[myId].turretAngle});if(e.code==='ShiftLeft')socket.emit('ability',{});});
 document.addEventListener('keyup',e=>{if(e.code==='Space')socket.emit('shootInput',{active:false,angle:players[myId].turretAngle});});
 let keys={};

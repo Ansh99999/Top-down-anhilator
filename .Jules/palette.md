@@ -7,3 +7,7 @@
 ## 2024-05-24 - Focus Visibility in Dark Themes
 **Learning:** Default browser focus rings are often invisible against dark backgrounds common in games like Jungle Militia.
 **Action:** Always define a high-contrast custom `:focus-visible` style (e.g., using the game's highlight color) for interactive elements in dark-themed UIs.
+
+## 2026-01-15 - Semantic Buttons in Hybrid Controls
+**Learning:** Converting `div` buttons to `<button>` tags requires careful handling of hybrid touch/mouse events. `touchstart` with `preventDefault` suppresses `click`, breaking the button for mouse/keyboard users if a separate `click` listener isn't added.
+**Action:** When refactoring to semantic HTML, always ensure a `click` listener exists for mouse/keyboard activation and explicitly reset User Agent styles (border, background, padding) to match the original design.
