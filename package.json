@@ -1,1 +1,1 @@
-{"name":"anhilation-area","version":"1.0.0","main":"server.js","scripts":{"start":"node server.js"},"dependencies":{"express":"^5.2.1","socket.io":"^4.8.3"}}
+{"name":"anhilation-area","version":"1.0.0","main":"server.js","scripts":{"start":"node server.js"},"dependencies":{"@playwright/test":"^1.57.0","express":"^5.2.1","playwright":"^1.57.0","socket.io":"^4.8.3"}}
