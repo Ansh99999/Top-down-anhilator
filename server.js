@@ -110,6 +110,24 @@ let lastEnemySpawn=0;let lastItemSpawn=0;
 let adapt={speed:0,stat:0,kills:0};
 // Ability Cooldowns (ms)
 const ABILITY_COOLDOWNS={0:5000,1:10000,2:15000,3:20000,4:10000,5:30000,6:8000,7:20000};
+
+// --- WEATHER SYSTEM ---
+let weather = 'CLEAR'; // CLEAR, MONSOON
+let weatherTimer = 0;
+function updateWeather(){
+  weatherTimer++;
+  if(weather === 'CLEAR' && weatherTimer > 3000 && Math.random() < 0.001){ // ~100s min duration
+    weather = 'MONSOON';
+    weatherTimer = 0;
+    io.emit('notification', 'MONSOON APPROACHING!');
+  } else if(weather === 'MONSOON' && weatherTimer > 1500 && Math.random() < 0.002){ // ~50s duration
+    weather = 'CLEAR';
+    weatherTimer = 0;
+    io.emit('notification', 'THE STORM HAS PASSED.');
+  }
+}
+// ----------------------
+
 // Global Events
 let activeEvent=null;let eventTimer=0;
 const EVENTS=[
@@ -235,6 +253,7 @@ if(dist>mapR-radius){
 setInterval(()=>{
 let mapR=MAP_SIZES[currentMap];
 checkEvents();
+updateWeather();
 let totalSpeed=0,count=0;
 for(let id in players){if(!players[id].isBot){totalSpeed+=players[id].speed;count++;}}
 if(count>0) adapt.speed=totalSpeed/count;
@@ -320,35 +339,60 @@ for(let i=destructibles.length-1;i>=0;i--){
 // Spawn Logic
 let spawnDelay=Math.max(500, 2000 - wave*100);
 if(Date.now()-lastEnemySpawn>spawnDelay && waveState.spawned<waveState.total){
-let r=Math.random();
-let type=0;
-if(adapt.speed>6 || threat>50 || wave>3) type=1;
-if(threat>80 || wave>5) type=3;
-if(Math.random()<0.2 + threat/200) type=2;
-let ang=Math.random()*Math.PI*2;
-let dist=mapR-50;
-let enemy={
-  id:Math.random(),x:Math.cos(ang)*dist,y:Math.sin(ang)*dist,
-  type:type,
-  hp:20+wave*5+(type===3?100:0),
-  maxHp:20+wave*5+(type===3?100:0),
-  speed:type===0?5:type===1?3:type===3?1.5:4,
-  state:'chase',stateTimer:0,
-  targetId:null,
-  modifiers:[]
-};
-// Elite System
-if(wave>2 && Math.random()<(0.1 + wave*0.05)){
-  let mods=['FAST','ARMORED','EXPLOSIVE'];
-  let mod=mods[Math.floor(Math.random()*mods.length)];
-  enemy.modifiers.push(mod);
-  enemy.isElite=true;
-  if(mod==='FAST') enemy.speed*=1.5;
-  if(mod==='ARMORED') {enemy.hp*=2;enemy.maxHp*=2;}
-}
-enemies.push(enemy);
-waveState.spawned++;
-lastEnemySpawn=Date.now();
+  // BOSS SPAWN
+  if(wave % 5 === 0){
+     if(waveState.spawned === 0){ // First spawn of the wave
+       let ang=Math.random()*Math.PI*2;
+       let dist=mapR-50;
+       enemies.push({
+         id:Math.random(), x:Math.cos(ang)*dist, y:Math.sin(ang)*dist,
+         type: 10, // Boss Type
+         hp: 5000 + wave * 500,
+         maxHp: 5000 + wave * 500,
+         speed: 3,
+         state: 'chase', stateTimer: 0,
+         targetId: null,
+         modifiers: ['ARMORED'],
+         radius: 60 // Custom large collision radius
+       });
+       io.emit('notification', 'WARNING: JUNGLE BEHEMOTH DETECTED!');
+       waveState.total = 1; // Only one enemy this wave
+       waveState.spawned = 1;
+       lastEnemySpawn = Date.now();
+     }
+  } else {
+    // NORMAL SPAWN
+    let r=Math.random();
+    let type=0;
+    if(adapt.speed>6 || threat>50 || wave>3) type=1;
+    if(threat>80 || wave>5) type=3;
+    if(Math.random()<0.2 + threat/200) type=2;
+    let ang=Math.random()*Math.PI*2;
+    let dist=mapR-50;
+    let enemy={
+      id:Math.random(),x:Math.cos(ang)*dist,y:Math.sin(ang)*dist,
+      type:type,
+      hp:20+wave*5+(type===3?100:0),
+      maxHp:20+wave*5+(type===3?100:0),
+      speed:type===0?5:type===1?3:type===3?1.5:4,
+      state:'chase',stateTimer:0,
+      targetId:null,
+      modifiers:[],
+      radius: 20
+    };
+    // Elite System
+    if(wave>2 && Math.random()<(0.1 + wave*0.05)){
+      let mods=['FAST','ARMORED','EXPLOSIVE'];
+      let mod=mods[Math.floor(Math.random()*mods.length)];
+      enemy.modifiers.push(mod);
+      enemy.isElite=true;
+      if(mod==='FAST') enemy.speed*=1.5;
+      if(mod==='ARMORED') {enemy.hp*=2;enemy.maxHp*=2;}
+    }
+    enemies.push(enemy);
+    waveState.spawned++;
+    lastEnemySpawn=Date.now();
+  }
 }
 if(Date.now()-lastItemSpawn>10000 && items.length<10){
 let ang=Math.random()*Math.PI*2;let d=Math.random()*mapR;
@@ -472,7 +516,8 @@ for(let j=structures.length-1;j>=0;j--){let s=structures[j];if(Math.hypot(b.x-s.
 }else{
 for(let j=enemies.length-1;j>=0;j--){
 let e=enemies[j];
-if(Math.hypot(b.x-e.x,b.y-e.y)<32){
+let hitR = e.radius || 32;
+if(Math.hypot(b.x-e.x,b.y-e.y)<hitR){
 let reduction=e.modifiers.includes('ARMORED')?0.5:1;
 e.hp-=b.damage*reduction;
 bullets.splice(i,1);
@@ -500,7 +545,7 @@ let p=players[id];
 for(let j=enemies.length-1;j>=0;j--){let e=enemies[j];let d=Math.hypot(p.x-e.x,p.y-e.y);if(d<30){p.hp-=1;if(p.type===6&&p.speed>10){e.hp-=50;if(e.hp<=0)enemies.splice(j,1);}}}
 for(let k=items.length-1;k>=0;k--){let it=items[k];if(Math.hypot(p.x-it.x,p.y-it.y)<30){if(it.type===0)p.hp=Math.min(p.hp+50,p.maxHp);if(it.type===1){p.buffs.speed=1.5;setTimeout(()=>p.buffs.speed=1,5000);}if(it.type===2){p.buffs.damage=1.5;setTimeout(()=>p.buffs.damage=1,5000);}items.splice(k,1);}}
 }
-io.emit('update',{players,bullets,enemies,items,wave,structures,destructibles,threat});
+io.emit('update',{players,bullets,enemies,items,wave,structures,destructibles,threat,weather});
 },33); // 30 TPS
 const PORT=process.env.PORT||3000;
 server.listen(PORT,'0.0.0.0',()=>{console.log(`Server running on port ${PORT}`);});

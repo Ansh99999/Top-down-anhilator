@@ -9,6 +9,21 @@ const eventBanner=document.getElementById('event-banner');
 const eventName=document.getElementById('event-name');
 const eventDesc=document.getElementById('event-desc');
 
+// --- ASSET LOADER ---
+const assets = {};
+function loadAssets(){
+  const list = [
+    {key: 'DuneBuggy', src: 'assets/DuneBuggy.png'}
+  ];
+  list.forEach(item => {
+    const img = new Image();
+    img.src = item.src;
+    img.onload = () => { assets[item.key] = img; };
+  });
+}
+loadAssets();
+// --------------------
+
 let width,height;
 function resize(){width=window.innerWidth;height=window.innerHeight;canvas.width=width;canvas.height=height;}
 window.addEventListener('resize',resize);resize();
@@ -111,6 +126,15 @@ socket.on('updatePlayers',p=>players=p);
 socket.on('update',data=>{players=data.players;bullets=data.bullets;enemies=data.enemies;items=data.items;structures=data.structures;destructibles=data.destructibles;
 document.getElementById('wave-val').innerText=data.wave;
 threatFill.style.width=Math.min(100,data.threat)+'%';
+
+// WEATHER EFFECT
+if(data.weather === 'MONSOON'){
+  canvas.style.filter = 'brightness(0.6) contrast(1.2)';
+} else {
+  canvas.style.filter = 'none';
+}
+window.currentWeather = data.weather; // Store for physics
+
 if(players[myId]){
 document.getElementById('hp-val').innerText=Math.floor(players[myId].hp);
 document.getElementById('score-val').innerText=players[myId].score;
@@ -148,18 +172,32 @@ mapCtx.beginPath();mapCtx.ellipse(Math.cos(a)*r,Math.sin(a)*r,sz,sz*0.6,Math.ran
 function drawVehicle(ctx,color,angle,turretAngle,type, p){
 ctx.save();ctx.rotate(angle);
 ctx.strokeStyle='#000';ctx.lineWidth=2;
-// Detailed Cartoon Style
-ctx.fillStyle='#333';
-if(type===6){ // Chopper
-ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(0,0,25,12,0,0,Math.PI*2);ctx.fill();ctx.stroke();
-ctx.fillStyle='rgba(0,0,0,0.5)';ctx.beginPath();ctx.arc(0,0,35,0,Math.PI*2);ctx.fill(); // Rotor blur
-}else{
-// Tracks
-ctx.beginPath();ctx.roundRect(-24,-22,48,44,4);ctx.fill();
-// Body
-ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(-18,-16,36,32,6);ctx.fill();ctx.stroke();
-// Details
-ctx.fillStyle='rgba(255,255,255,0.2)';ctx.beginPath();ctx.rect(-10,-10,20,10);ctx.fill();
+
+// IMAGE DRAWING
+if(type === 0 && assets['DuneBuggy']){
+  // Draw the image centered and rotated
+  // Assuming the sprite faces RIGHT by default. If it faces UP, we might need rotation adjustment.
+  // Standard sprites often face Right (0 rad).
+  try {
+      ctx.drawImage(assets['DuneBuggy'], -25, -25, 50, 50);
+  } catch(e) {
+      // Fallback if draw fails
+      ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(-18,-16,36,32,6);ctx.fill();ctx.stroke();
+  }
+} else {
+  // Detailed Cartoon Style
+  ctx.fillStyle='#333';
+  if(type===6){ // Chopper
+    ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(0,0,25,12,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle='rgba(0,0,0,0.5)';ctx.beginPath();ctx.arc(0,0,35,0,Math.PI*2);ctx.fill(); // Rotor blur
+  }else{
+    // Tracks
+    ctx.beginPath();ctx.roundRect(-24,-22,48,44,4);ctx.fill();
+    // Body
+    ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(-18,-16,36,32,6);ctx.fill();ctx.stroke();
+    // Details
+    ctx.fillStyle='rgba(255,255,255,0.2)';ctx.beginPath();ctx.rect(-10,-10,20,10);ctx.fill();
+  }
 }
 
 // Visual Degradation (Smoke)
@@ -190,7 +228,14 @@ ctx.restore();
 function drawEnemy(ctx,e,angle){
 ctx.rotate(angle);ctx.lineWidth=2;ctx.strokeStyle='#000';
 let type=e.type;
-if(type===0){ // Rusher
+if(type===10){ // JUNGLE BEHEMOTH (Boss)
+  ctx.fillStyle='#2c3e50';
+  ctx.beginPath();ctx.arc(0,0,60,0,Math.PI*2);ctx.fill();ctx.stroke();
+  // Boss details
+  ctx.fillStyle='#c0392b';ctx.beginPath();ctx.arc(20,-20,10,0,Math.PI*2);ctx.fill(); // Eye
+  ctx.beginPath();ctx.arc(20,20,10,0,Math.PI*2);ctx.fill(); // Eye
+  ctx.fillStyle='#7f8c8d';ctx.beginPath();ctx.rect(-40,-30,40,60);ctx.fill(); // Plate
+}else if(type===0){ // Rusher
 ctx.fillStyle='#c0392b';ctx.beginPath();ctx.moveTo(15,0);ctx.lineTo(-10,10);ctx.lineTo(-5,0);ctx.lineTo(-10,-10);ctx.fill();ctx.stroke();
 }else if(type===1){ // Shooter
 ctx.fillStyle='#27ae60';ctx.beginPath();ctx.arc(0,0,14,0,Math.PI*2);ctx.fill();ctx.stroke();
@@ -223,6 +268,25 @@ camY=me.y-height/2 + (Math.random()-0.5)*shakeY;
 ctx.save();ctx.translate(-camX,-camY);
 // Draw Terrain
 ctx.drawImage(mapCanvas,-mapRadius-100,-mapRadius-100);
+
+// Weather Effects (Rain)
+if(window.currentWeather === 'MONSOON'){
+  ctx.save();
+  ctx.strokeStyle = 'rgba(174, 194, 224, 0.5)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  let time = Date.now();
+  for(let i=0; i<100; i++){
+     // Simple rain simulation around camera
+     let rx = camX + (Math.sin(i * 1321 + time*0.001) * width);
+     let ry = camY + ((time * 2 + i * 3232) % height);
+     ctx.moveTo(rx, ry);
+     ctx.lineTo(rx - 5, ry + 15);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
 // Obstacles
 ctx.shadowColor='rgba(0,0,0,0.5)';ctx.shadowBlur=20;
 obstacles.forEach(o=>{
@@ -323,8 +387,10 @@ if(inputAngle!==null){
 }
 
 // Friction / Drift
-vx *= phys.drift;
-vy *= phys.drift;
+let drift = phys.drift;
+if(window.currentWeather === 'MONSOON') drift = Math.min(0.99, drift + 0.05); // More slippery (closer to 1.0 means less friction loss per tick)
+vx *= drift;
+vy *= drift;
 
 // Cap Speed
 let spd = Math.hypot(vx,vy);
