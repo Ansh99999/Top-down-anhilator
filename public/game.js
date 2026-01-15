@@ -24,8 +24,10 @@ const vehicles=[
 ];
 vehicles.forEach((v,i)=>{
 const el=document.createElement('div');el.className='vehicle-card';
+el.tabIndex=0; el.setAttribute('role','button'); el.setAttribute('aria-label', `Select ${v.name}`);
 el.innerHTML=`<h3>${v.name}</h3><div class="vehicle-preview" style="background:${v.color};border-color:#fff"></div><small>HP:${v.stats.hp}</small>`;
 el.onclick=()=>startGame(i);
+el.onkeydown=(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();startGame(i);}};
 vehicleList.appendChild(el);
 });
 let myId=null;let players={};let bullets=[];let enemies=[];let obstacles=[];let items=[];let structures=[];let destructibles=[];
