@@ -13,7 +13,7 @@
     <h1 class="game-title">JUNGLE MILITIA</h1>
     <div class="menu-row">
       <div class="menu-group">
-        <label>BATTLEFIELD</label>
+        <label for="map-select">BATTLEFIELD</label>
         <select id="map-select">
           <option value="0">DEEP JUNGLE</option>
           <option value="1">RIVER DELTA</option>
@@ -21,7 +21,7 @@
         </select>
       </div>
       <div class="menu-group">
-        <label>SQUAD</label>
+        <label for="copilot-count">SQUAD</label>
         <select id="copilot-count">
           <option value="0">SOLO</option>
           <option value="1">1 WINGMAN</option>
@@ -69,7 +69,7 @@
   <!-- Controls -->
   <div id="joystick"><div id="knob"></div></div>
   <div id="shoot-joystick"><div id="shoot-knob"></div></div>
-  <div id="ability-btn">SKILL</div>
+  <button id="ability-btn" type="button">SKILL</button>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
