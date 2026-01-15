@@ -1,6 +1,11 @@
 const express=require('express');const app=express();const http=require('http');const server=http.createServer(app);const {Server}=require("socket.io");const io=new Server(server);const path=require('path');
+const SpatialGrid = require('./spatial-grid');
 app.use(express.static(path.join(__dirname,'public')));
 let players={};let bullets=[];let enemies=[];let obstacles=[];let items=[];let structures=[];let destructibles=[];
+// Spatial Grid for Obstacles
+const MAX_OBS_R = 100; // Max radius of obstacle + buffer
+let obstacleGrid = new SpatialGrid(6000, 6000, 200);
+
 // Radius based maps
 const MAP_SIZES={0:2000,1:2500,2:1500}; // 0:Jungle, 1:River, 2:Mountain
 let currentMap=0;
@@ -84,17 +89,20 @@ const VEHICLE_DEFS = {
 
 function generateObstacles(mapId){
 obstacles=[];destructibles=[];
+obstacleGrid.clear();
 let r=MAP_SIZES[mapId];
 let count=mapId===0?120:mapId===1?60:40;
 for(let i=0;i<count;i++){
   // Random pos within circle, but not too close to center
   let dist=300+Math.random()*(r-300);
   let ang=Math.random()*Math.PI*2;
-  obstacles.push({
+  let obs = {
     x:Math.cos(ang)*dist,
     y:Math.sin(ang)*dist,
     r:30+Math.random()*60 // Radius of tree
-  });
+  };
+  obstacles.push(obs);
+  obstacleGrid.insert(obs);
 }
 // Generate destructibles
 let dCount=20;
@@ -226,8 +234,20 @@ if(p.type===6){p.speed=18;setTimeout(()=>p.speed=8,2500);} // Speed
 if(p.type===7){structures.push({id:Math.random(),x:p.x,y:p.y,hp:150,owner:p.id,life:1000});} // Sentry
 }
 function checkCollision(x,y,r){
-for(let o of obstacles){let dist=Math.hypot(x-o.x,y-o.y);if(dist<o.r+r) return o;}
-for(let d of destructibles){let dist=Math.hypot(x-d.x,y-d.y);if(dist<d.r+r) return d;}
+let searchR = MAX_OBS_R + r;
+let candidates = obstacleGrid.query(x - searchR, y - searchR, searchR * 2, searchR * 2);
+for(let o of candidates){
+  let dx=x-o.x;let dy=y-o.y;
+  let distSq=dx*dx+dy*dy;
+  let minDist=o.r+r;
+  if(distSq<minDist*minDist) return o;
+}
+for(let d of destructibles){
+  let dx=x-d.x;let dy=y-d.y;
+  let distSq=dx*dx+dy*dy;
+  let minDist=d.r+r;
+  if(distSq<minDist*minDist) return d;
+}
 return null;
 }
 function resolveCollision(p,radius){
@@ -238,11 +258,26 @@ if(dist>mapR-radius){
   p.x=Math.cos(ang)*(mapR-radius);
   p.y=Math.sin(ang)*(mapR-radius);
 }
-[...obstacles,...destructibles].forEach(o=>{
+let searchR = MAX_OBS_R + radius;
+let candidates = obstacleGrid.query(p.x - searchR, p.y - searchR, searchR * 2, searchR * 2);
+candidates.forEach(o=>{
   let dx=p.x-o.x;let dy=p.y-o.y;
-  let d=Math.hypot(dx,dy);
+  let distSq=dx*dx+dy*dy;
   let minDist=o.r+radius;
-  if(d<minDist){
+  if(distSq<minDist*minDist){
+    let d=Math.sqrt(distSq);
+    if(d===0){dx=1;dy=0;d=1;}
+    let push=minDist-d;
+    p.x+=dx/d*push;
+    p.y+=dy/d*push;
+  }
+});
+destructibles.forEach(o=>{
+  let dx=p.x-o.x;let dy=p.y-o.y;
+  let distSq=dx*dx+dy*dy;
+  let minDist=o.r+radius;
+  if(distSq<minDist*minDist){
+    let d=Math.sqrt(distSq);
     if(d===0){dx=1;dy=0;d=1;}
     let push=minDist-d;
     p.x+=dx/d*push;
