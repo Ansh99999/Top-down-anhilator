@@ -84,45 +84,30 @@ window.game = game;
 // Garage Render
 function renderGarage() {
     const grid = document.getElementById('garage-grid');
-
-    // Create elements only if missing (preserves focus)
-    if (grid.children.length === 0) {
-        game.vehicles.forEach((v, i) => {
-            let el = document.createElement('div');
-            el.className = 'vehicle-card';
-            el.tabIndex = 0;
-            el.role = 'button';
-            el.setAttribute('aria-label', `Select ${v.name}`);
-
-            el.innerHTML = `
-                <h3>${v.name}</h3>
-                <p>${v.desc}</p>
-                <div class="stat-bar"><div class="stat-fill" style="width:${v.stats.hp/2}%"></div></div>
-                <div class="stat-bar"><div class="stat-fill" style="width:${v.stats.damage*2}%"></div></div>
-                <div class="stat-bar"><div class="stat-fill" style="width:${v.stats.speed*10}%"></div></div>
-            `;
-
-            const select = () => {
-                game.selectedVehicle = i;
-                renderGarage();
-            };
-
-            el.onclick = select;
-            el.onkeydown = (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    select();
-                }
-            };
-            grid.appendChild(el);
-        });
-    }
-
-    // Update states
-    Array.from(grid.children).forEach((el, i) => {
-        const isSelected = (i === game.selectedVehicle);
-        el.className = 'vehicle-card' + (isSelected ? ' selected' : '');
-        el.setAttribute('aria-pressed', isSelected);
+    grid.innerHTML = '';
+    game.vehicles.forEach((v, i) => {
+        let el = document.createElement('div');
+        el.className = 'vehicle-card' + (i === game.selectedVehicle ? ' selected' : '');
+        el.innerHTML = `
+            <h3>${v.name}</h3>
+            <p>${v.desc}</p>
+            <div class="stat-bar"><div class="stat-fill" style="width:${v.stats.hp/2}%"></div></div>
+            <div class="stat-bar"><div class="stat-fill" style="width:${v.stats.damage*2}%"></div></div>
+            <div class="stat-bar"><div class="stat-fill" style="width:${v.stats.speed*10}%"></div></div>
+        `;
+        el.tabIndex = 0;
+        const select = () => {
+            game.selectedVehicle = i;
+            renderGarage();
+        };
+        el.onclick = select;
+        el.onkeydown = (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                select();
+            }
+        };
+        grid.appendChild(el);
     });
 }
 

@@ -38,7 +38,7 @@
       <h2 id="lobby-title">MISSION BRIEFING</h2>
       <div class="setup-grid">
         <div class="form-group">
-          <label>BATTLEFIELD</label>
+          <label for="map-select">BATTLEFIELD</label>
           <select id="map-select">
             <option value="0">DEEP JUNGLE (Balanced)</option>
             <option value="1">RIVER DELTA (Water)</option>
@@ -48,7 +48,7 @@
           </select>
         </div>
         <div class="form-group">
-          <label>SQUAD SUPPORT</label>
+          <label for="ally-count">SQUAD SUPPORT</label>
           <select id="ally-count">
             <option value="0">SOLO OP</option>
             <option value="1">1 WINGMAN</option>
@@ -59,8 +59,8 @@
       </div>
 
       <div id="join-code-area" style="display:none; margin-bottom:15px;">
-        <label>ENTER ROOM CODE:</label>
-        <input type="text" id="room-code-input" placeholder="e.g. A7X9" style="text-transform:uppercase; text-align:center; letter-spacing: 5px;">
+        <label for="room-code-input">ENTER ROOM CODE:</label>
+        <input type="text" id="room-code-input" placeholder="e.g. A7X9" style="text-transform:uppercase; text-align:center; letter-spacing: 5px;" autocomplete="off" autocapitalize="characters">
       </div>
 
       <div id="lobby-info" style="margin-bottom:15px; display:none;">
