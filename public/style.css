@@ -130,6 +130,12 @@ select, input[type="text"] {
   box-sizing: border-box;
 }
 
+select:focus-visible, input[type="text"]:focus-visible {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 10px rgba(241, 196, 15, 0.3);
+}
+
 #lobby-players-list {
   background: #222;
   border-radius: 5px;
@@ -166,6 +172,11 @@ select, input[type="text"] {
   border-color: var(--primary);
   background: #444;
   box-shadow: 0 0 15px rgba(241, 196, 15, 0.3);
+}
+.vehicle-card:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 15px rgba(241, 196, 15, 0.6);
 }
 .vehicle-card h3 { font-size: 1.2em; margin: 5px 0; }
 .vehicle-card p { font-size: 0.8em; color: #bbb; margin: 5px 0; }

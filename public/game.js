@@ -95,9 +95,17 @@ function renderGarage() {
             <div class="stat-bar"><div class="stat-fill" style="width:${v.stats.damage*2}%"></div></div>
             <div class="stat-bar"><div class="stat-fill" style="width:${v.stats.speed*10}%"></div></div>
         `;
-        el.onclick = () => {
+        el.tabIndex = 0;
+        const select = () => {
             game.selectedVehicle = i;
             renderGarage();
+        };
+        el.onclick = select;
+        el.onkeydown = (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                select();
+            }
         };
         grid.appendChild(el);
     });
