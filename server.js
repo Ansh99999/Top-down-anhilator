@@ -718,6 +718,9 @@ io.on('connection', (socket) => {
           }
       }
 
+      // ⚡ Bolt: Store roomId on socket for O(1) access
+      socket.data.roomId = roomId;
+
       let game = games[roomId];
       socket.join(roomId);
       game.addPlayer(socket, { ...data, stats: VEHICLE_DEFS[data.type].stats || {hp:100,damage:10,speed:5} }); // Sanitize stats usage
@@ -738,49 +741,37 @@ io.on('connection', (socket) => {
   });
 
   socket.on('move', (data) => {
-      // Find which game this socket is in
-      // This is inefficient O(N) where N=Rooms. Better to store socket.roomId.
-      for(let rid in games){
-          if(games[rid].players[socket.id]){
-              let p = games[rid].players[socket.id];
-              p.x = data.x; p.y = data.y; p.angle = data.angle;
-              if(data.vx !== undefined){ p.vx = data.vx; p.vy = data.vy; }
-              return;
-          }
+      // ⚡ Bolt: O(1) Room Lookup
+      const roomId = socket.data.roomId;
+      if (roomId && games[roomId] && games[roomId].players[socket.id]) {
+          let p = games[roomId].players[socket.id];
+          p.x = data.x; p.y = data.y; p.angle = data.angle;
+          if(data.vx !== undefined){ p.vx = data.vx; p.vy = data.vy; }
       }
   });
 
   socket.on('shootInput', (data) => {
-    for(let rid in games){
-        if(games[rid].players[socket.id]){
-            games[rid].players[socket.id].turretAngle = data.angle;
-            games[rid].players[socket.id].isShooting = data.active;
-            return;
-        }
+    const roomId = socket.data.roomId;
+    if (roomId && games[roomId] && games[roomId].players[socket.id]) {
+        games[roomId].players[socket.id].turretAngle = data.angle;
+        games[roomId].players[socket.id].isShooting = data.active;
     }
   });
 
   socket.on('ability', () => {
-      for(let rid in games){
-          if(games[rid].players[socket.id]){
-              games[rid].useAbility(games[rid].players[socket.id]);
-              return;
-          }
+      const roomId = socket.data.roomId;
+      if (roomId && games[roomId] && games[roomId].players[socket.id]) {
+          games[roomId].useAbility(games[roomId].players[socket.id]);
       }
   });
 
   socket.on('dash', () => { // NEW DASH
-    for(let rid in games){
-        let p = games[rid].players[socket.id];
-        if(p && p.dashCooldown <= 0 && p.stress < p.maxStress - 20){
+    const roomId = socket.data.roomId;
+    if (roomId && games[roomId] && games[roomId].players[socket.id]) {
+        let p = games[roomId].players[socket.id];
+        if(p.dashCooldown <= 0 && p.stress < p.maxStress - 20){
             p.stress += 15;
             p.dashCooldown = 60; // 2 seconds
-            // Apply impulse
-            let ang = p.angle;
-            // We can't directly change velocity significantly if client is authoritative on pos.
-            // But we can send an event to client to apply impulse?
-            // OR we trust the client to send the new position/velocity, but we validate cooldown here.
-            // Let's assume client handles physics impulse, server handles cooldown.
         }
     }
   });
