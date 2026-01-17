@@ -15,3 +15,7 @@
 ## 2026-01-28 - Focus Loss on Re-render
 **Learning:** In dynamic UIs where lists are rebuilt from scratch (like the Garage), selecting an item via keyboard triggers a re-render that destroys the focused element, causing focus to reset to `body`.
 **Action:** When making dynamic lists accessible, implement focus management logic to restore focus to the selected item (or its replacement) after re-rendering, preserving the user's context.
+
+## 2026-02-19 - DOM Reuse for Focus Preservation
+**Learning:** Instead of re-creating list elements on every state change (which kills focus), build the list once and only update attributes (class, aria-pressed) in subsequent renders.
+**Action:** Use a pattern where `innerHTML` is only set if the container is empty; otherwise, iterate over children to update state. This preserves focus and reduces DOM thrashing.
