@@ -15,3 +15,7 @@
 ## 2026-01-28 - Focus Loss on Re-render
 **Learning:** In dynamic UIs where lists are rebuilt from scratch (like the Garage), selecting an item via keyboard triggers a re-render that destroys the focused element, causing focus to reset to `body`.
 **Action:** When making dynamic lists accessible, implement focus management logic to restore focus to the selected item (or its replacement) after re-rendering, preserving the user's context.
+
+## 2025-05-21 - Keyboard Shortcuts Discovery
+**Learning:** Buttons that duplicate global hotkeys (like "Space" for Dash) are invisible to screen reader users unless explicitly linked.
+**Action:** Use `aria-keyshortcuts` on action buttons to announce available global shortcuts, reinforcing the connection between the UI control and the keyboard command.
