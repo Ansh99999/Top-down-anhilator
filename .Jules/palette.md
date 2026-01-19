@@ -15,3 +15,7 @@
 ## 2026-01-28 - Focus Loss on Re-render
 **Learning:** In dynamic UIs where lists are rebuilt from scratch (like the Garage), selecting an item via keyboard triggers a re-render that destroys the focused element, causing focus to reset to `body`.
 **Action:** When making dynamic lists accessible, implement focus management logic to restore focus to the selected item (or its replacement) after re-rendering, preserving the user's context.
+
+## 2026-05-30 - Game Controls vs UI Focus
+**Learning:** Global game hotkeys (e.g., Space to Dash) conflict with standard UI accessibility behavior (Space to Activate) when HUD elements are made focusable.
+**Action:** When adding keyboard accessibility to HUD elements, explicitly handle `keydown` (Enter/Space) with `stopPropagation()` to ensure the UI action fires instead of the gameplay action.
