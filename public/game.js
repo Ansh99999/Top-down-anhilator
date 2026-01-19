@@ -23,7 +23,10 @@ const ui = {
   showLobby(isHost) {
     this.showScreen('lobby');
     document.getElementById('lobby-title').innerText = isHost ? "MISSION BRIEFING (HOST)" : "JOINING SQUAD";
-    document.getElementById('lobby-action-btn').innerText = isHost ? "DEPLOY" : "JOIN";
+    const btn = document.getElementById('lobby-action-btn');
+    btn.innerText = isHost ? "DEPLOY" : "JOIN";
+    btn.className = 'btn-menu'; // Reset loading class
+    btn.disabled = false;
     document.getElementById('join-code-area').style.display = isHost ? 'none' : 'block';
 
     // Reset state
@@ -68,6 +71,12 @@ const game = {
   startRequest() {
     let allyCount = parseInt(document.getElementById('ally-count').value);
     let mapId = parseInt(document.getElementById('map-select').value);
+
+    const btn = document.getElementById('lobby-action-btn');
+    if(btn.disabled) return;
+    btn.disabled = true;
+    btn.classList.add('loading');
+    btn.innerHTML = `<span class="spinner"></span>${this.isHost ? "DEPLOYING..." : "JOINING..."}`;
 
     if (this.isHost) {
         socket.emit('createGame', { mapId });
@@ -197,6 +206,17 @@ dashBtn.addEventListener('click', e => socket.emit('dash')); // Desktop fallback
 
 abilityBtn.addEventListener('touchstart', e => { e.preventDefault(); socket.emit('ability'); });
 abilityBtn.addEventListener('click', e => socket.emit('ability'));
+
+// A11y: Keyboard activation for buttons
+[dashBtn, abilityBtn].forEach(el => {
+    el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            el.click();
+        }
+    });
+});
 
 // Keyboard
 let keys = {};
