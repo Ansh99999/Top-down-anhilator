@@ -84,10 +84,24 @@ window.game = game;
 // Garage Render
 function renderGarage() {
     const grid = document.getElementById('garage-grid');
+
+    // Capture focus before re-render
+    let focusedIndex = -1;
+    if (document.activeElement && grid.contains(document.activeElement)) {
+        focusedIndex = Array.from(grid.children).indexOf(document.activeElement);
+    }
+
     grid.innerHTML = '';
     game.vehicles.forEach((v, i) => {
         let el = document.createElement('div');
-        el.className = 'vehicle-card' + (i === game.selectedVehicle ? ' selected' : '');
+        const isSelected = i === game.selectedVehicle;
+        el.className = 'vehicle-card' + (isSelected ? ' selected' : '');
+
+        // Accessibility
+        el.role = 'button';
+        el.setAttribute('aria-pressed', isSelected);
+        el.setAttribute('aria-label', `${v.name}: ${v.desc}`);
+
         el.innerHTML = `
             <h3>${v.name}</h3>
             <p>${v.desc}</p>
@@ -109,6 +123,11 @@ function renderGarage() {
         };
         grid.appendChild(el);
     });
+
+    // Restore focus
+    if (focusedIndex !== -1 && grid.children[focusedIndex]) {
+        grid.children[focusedIndex].focus();
+    }
 }
 
 // --- ASSET LOADER ---
