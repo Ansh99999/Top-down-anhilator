@@ -221,6 +221,14 @@ select:focus-visible, input[type="text"]:focus-visible {
 .bar-text { position: absolute; top: 0; left: 5px; font-size: 12px; line-height: 18px; z-index: 2; text-shadow: 1px 1px 0 #000; }
 
 /* Abilities */
+button.ability-icon, button.dash-icon {
+  padding: 0;
+  font-family: inherit;
+  color: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
 .ability-icon {
   width: 60px; height: 60px;
   background: #34495e;
@@ -289,3 +297,10 @@ select:focus-visible, input[type="text"]:focus-visible {
 /* Helper Classes */
 .row { display: flex; gap: 10px; align-items: center; }
 .btn-small { padding: 5px 10px; font-size: 0.8em; background: #555; color: #fff; border: 1px solid #777; border-radius: 4px; cursor: pointer; }
+
+/* Loading State */
+.loading {
+  opacity: 0.7;
+  cursor: wait !important;
+  pointer-events: none;
+}
