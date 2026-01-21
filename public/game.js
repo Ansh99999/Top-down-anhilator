@@ -23,7 +23,11 @@ const ui = {
   showLobby(isHost) {
     this.showScreen('lobby');
     document.getElementById('lobby-title').innerText = isHost ? "MISSION BRIEFING (HOST)" : "JOINING SQUAD";
-    document.getElementById('lobby-action-btn').innerText = isHost ? "DEPLOY" : "JOIN";
+
+    const btn = document.getElementById('lobby-action-btn');
+    btn.innerText = isHost ? "DEPLOY" : "JOIN";
+    btn.classList.remove('loading');
+
     document.getElementById('join-code-area').style.display = isHost ? 'none' : 'block';
 
     // Reset state
@@ -68,6 +72,10 @@ const game = {
   startRequest() {
     let allyCount = parseInt(document.getElementById('ally-count').value);
     let mapId = parseInt(document.getElementById('map-select').value);
+
+    const btn = document.getElementById('lobby-action-btn');
+    btn.classList.add('loading');
+    btn.innerText = this.isHost ? "DEPLOYING..." : "JOINING...";
 
     if (this.isHost) {
         socket.emit('createGame', { mapId });
