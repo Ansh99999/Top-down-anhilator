@@ -5,3 +5,7 @@
 ## 2024-05-24 - Socket.io Room Lookup Optimization
 **Learning:** Iterating through all game rooms to find a player's session is O(N) and scales poorly.
 **Action:** Store `roomId` directly on `socket.data` (Socket.IO v4+) or `socket` object to enable O(1) access for high-frequency events like movement.
+
+## 2024-05-25 - Math.hypot vs Squared Distance
+**Learning:** `Math.hypot` is ~25x slower than manual squared distance calculation (`dx*dx + dy*dy`) in Node.js environments. Trigonometric functions (`atan2`, `cos`, `sin`) for clamping are ~2.5x slower than vector normalization.
+**Action:** For high-frequency distance checks (collision, AI), always use squared distance comparisons. For circular boundary clamping, use vector normalization.
