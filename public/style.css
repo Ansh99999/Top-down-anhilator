@@ -289,3 +289,20 @@ select:focus-visible, input[type="text"]:focus-visible {
 /* Helper Classes */
 .row { display: flex; gap: 10px; align-items: center; }
 .btn-small { padding: 5px 10px; font-size: 0.8em; background: #555; color: #fff; border: 1px solid #777; border-radius: 4px; cursor: pointer; }
+
+/* --- SEMANTIC BUTTON RESET --- */
+button#dash-btn, button#ability-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  color: inherit;
+  /* Specific class styles will override background/border/size */
+}
+
+button#dash-btn:focus-visible, button#ability-btn:focus-visible {
+  outline: 4px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 15px var(--primary);
+}
