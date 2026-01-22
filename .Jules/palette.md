@@ -15,3 +15,7 @@
 ## 2026-01-28 - Focus Loss on Re-render
 **Learning:** In dynamic UIs where lists are rebuilt from scratch (like the Garage), selecting an item via keyboard triggers a re-render that destroys the focused element, causing focus to reset to `body`.
 **Action:** When making dynamic lists accessible, implement focus management logic to restore focus to the selected item (or its replacement) after re-rendering, preserving the user's context.
+
+## 2026-05-22 - Semantic HUD Controls
+**Learning:** Game HUDs (Heads-Up Displays) are often excluded from accessibility passes. Converting HUD icons from `div`s to `<button>`s allows keyboard users to trigger actions (like Dash) without needing complex custom keybindings, provided focus styles are visible.
+**Action:** Audit HUD elements for interactivity and convert to semantic buttons with `aria-label`s, ensuring they handle both touch and keyboard activation.
