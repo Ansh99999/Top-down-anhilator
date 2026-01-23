@@ -84,10 +84,15 @@ window.game = game;
 // Garage Render
 function renderGarage() {
     const grid = document.getElementById('garage-grid');
+    const focusedIndex = Array.from(grid.children).indexOf(document.activeElement);
+
     grid.innerHTML = '';
     game.vehicles.forEach((v, i) => {
         let el = document.createElement('div');
         el.className = 'vehicle-card' + (i === game.selectedVehicle ? ' selected' : '');
+        el.setAttribute('role', 'button');
+        el.setAttribute('aria-pressed', i === game.selectedVehicle ? 'true' : 'false');
+        el.setAttribute('aria-label', `${v.name}. ${v.desc}. Speed ${v.stats.speed}, Health ${v.stats.hp}.`);
         el.innerHTML = `
             <h3>${v.name}</h3>
             <p>${v.desc}</p>
@@ -108,6 +113,10 @@ function renderGarage() {
             }
         };
         grid.appendChild(el);
+        if (i === focusedIndex) {
+            // Restore focus after re-render to maintain keyboard navigation flow
+            requestAnimationFrame(() => el.focus());
+        }
     });
 }
 
