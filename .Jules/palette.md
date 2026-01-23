@@ -15,3 +15,7 @@
 ## 2026-01-28 - Focus Loss on Re-render
 **Learning:** In dynamic UIs where lists are rebuilt from scratch (like the Garage), selecting an item via keyboard triggers a re-render that destroys the focused element, causing focus to reset to `body`.
 **Action:** When making dynamic lists accessible, implement focus management logic to restore focus to the selected item (or its replacement) after re-rendering, preserving the user's context.
+
+## 2026-02-18 - ARIA Roles for Complex Interactive Cards
+**Learning:** When complex UI elements (like vehicle cards with stats/descriptions) act as buttons, simply adding `onclick` is insufficient for screen readers.
+**Action:** Apply `role="button"`, explicit `aria-label` (summarizing the card's content), and `aria-pressed` (for selection state) to ensure the component is perceivable and operable for all users.
