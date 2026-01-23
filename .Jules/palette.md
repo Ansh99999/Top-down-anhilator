@@ -15,3 +15,7 @@
 ## 2026-01-28 - Focus Loss on Re-render
 **Learning:** In dynamic UIs where lists are rebuilt from scratch (like the Garage), selecting an item via keyboard triggers a re-render that destroys the focused element, causing focus to reset to `body`.
 **Action:** When making dynamic lists accessible, implement focus management logic to restore focus to the selected item (or its replacement) after re-rendering, preserving the user's context.
+
+## 2026-10-28 - Converting Icon Divs to Buttons
+**Learning:** When converting icon-only `div`s to `<button>`s to improve accessibility, browser User Agent styles (padding, appearance, border) often clash with existing custom styles (like circular borders).
+**Action:** Explicitly reset `appearance: none`, `padding: 0`, and `font-family: inherit` on the button class. Do NOT blindly set `border: none` or `background: none` if the existing class relies on them for the visual design; instead, ensure the class styles override the UA defaults (which they usually do due to specificity/author origin).
