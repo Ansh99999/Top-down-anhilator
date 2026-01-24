@@ -15,3 +15,7 @@
 ## 2026-01-28 - Focus Loss on Re-render
 **Learning:** In dynamic UIs where lists are rebuilt from scratch (like the Garage), selecting an item via keyboard triggers a re-render that destroys the focused element, causing focus to reset to `body`.
 **Action:** When making dynamic lists accessible, implement focus management logic to restore focus to the selected item (or its replacement) after re-rendering, preserving the user's context.
+
+## 2026-02-14 - Visual Retention in Semantic Refactors
+**Learning:** Replacing styled `<div>` icons with `<button>` elements introduces browser-default styles (borders, backgrounds) that break the game's aesthetic.
+**Action:** Always apply a comprehensive CSS reset (`appearance: none; background: transparent; border: none; padding: 0; font: inherit`) to the new `<button>` elements, ensuring they look identical to the original `<div>`s while gaining native accessibility.
