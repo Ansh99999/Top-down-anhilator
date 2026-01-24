@@ -246,6 +246,20 @@ select:focus-visible, input[type="text"]:focus-visible {
   cursor: pointer;
 }
 
+button.dash-icon, button.ability-icon {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  color: #fff;
+}
+
+button.dash-icon:focus-visible, button.ability-icon:focus-visible {
+  outline: 4px solid var(--primary);
+  outline-offset: 2px;
+}
+
 /* Minimap */
 #minimap {
   width: 140px; height: 140px;

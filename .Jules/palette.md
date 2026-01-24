@@ -15,3 +15,7 @@
 ## 2026-01-28 - Focus Loss on Re-render
 **Learning:** In dynamic UIs where lists are rebuilt from scratch (like the Garage), selecting an item via keyboard triggers a re-render that destroys the focused element, causing focus to reset to `body`.
 **Action:** When making dynamic lists accessible, implement focus management logic to restore focus to the selected item (or its replacement) after re-rendering, preserving the user's context.
+
+## 2026-02-12 - CSS Specificity in Semantic Refactors
+**Learning:** When converting `div.class` to `button.class` and adding a CSS reset rule for `button.class`, the reset rule (0-1-1) is more specific than the original class (0-1-0).
+**Action:** Do NOT blindly add `border: none` or `background: none` to the reset block if the original class defines them, as this will wipe out the design. Only reset properties that differ between `div` and `button` (appearance, padding) and rely on the original class for visuals.
