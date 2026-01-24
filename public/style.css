@@ -221,6 +221,20 @@ select:focus-visible, input[type="text"]:focus-visible {
 .bar-text { position: absolute; top: 0; left: 5px; font-size: 12px; line-height: 18px; z-index: 2; text-shadow: 1px 1px 0 #000; }
 
 /* Abilities */
+.ability-icon, .dash-icon {
+  appearance: none;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  color: inherit;
+}
+
+.ability-icon:focus-visible, .dash-icon:focus-visible {
+  outline: none;
+  box-shadow: 0 0 15px var(--primary);
+  border-color: var(--primary);
+}
+
 .ability-icon {
   width: 60px; height: 60px;
   background: #34495e;
