@@ -84,10 +84,19 @@ window.game = game;
 // Garage Render
 function renderGarage() {
     const grid = document.getElementById('garage-grid');
+    // Save focus
+    let focusedIdx = -1;
+    if (grid.contains(document.activeElement)) {
+        focusedIdx = Array.from(grid.children).indexOf(document.activeElement);
+    }
+
     grid.innerHTML = '';
     game.vehicles.forEach((v, i) => {
         let el = document.createElement('div');
         el.className = 'vehicle-card' + (i === game.selectedVehicle ? ' selected' : '');
+        el.setAttribute('role', 'button');
+        el.setAttribute('aria-label', `${v.name}. ${v.desc}`);
+        el.setAttribute('aria-pressed', i === game.selectedVehicle ? 'true' : 'false');
         el.innerHTML = `
             <h3>${v.name}</h3>
             <p>${v.desc}</p>
@@ -109,6 +118,11 @@ function renderGarage() {
         };
         grid.appendChild(el);
     });
+
+    // Restore focus
+    if (focusedIdx >= 0 && grid.children[focusedIdx]) {
+        grid.children[focusedIdx].focus();
+    }
 }
 
 // --- ASSET LOADER ---
