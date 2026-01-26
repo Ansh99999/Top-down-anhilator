@@ -15,3 +15,7 @@
 ## 2026-01-28 - Focus Loss on Re-render
 **Learning:** In dynamic UIs where lists are rebuilt from scratch (like the Garage), selecting an item via keyboard triggers a re-render that destroys the focused element, causing focus to reset to `body`.
 **Action:** When making dynamic lists accessible, implement focus management logic to restore focus to the selected item (or its replacement) after re-rendering, preserving the user's context.
+
+## 2026-02-14 - Space Key on Semantic Buttons
+**Learning:** Native `<button>` elements treat Space as a click, but this also scrolls the page. Using `preventDefault()` on `keydown` to stop scrolling accidentally suppresses the native click activation too.
+**Action:** When overriding Space behavior on buttons to prevent scroll, you must explicitly call `.click()` after `preventDefault()`.

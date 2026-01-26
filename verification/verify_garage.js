@@ -25,12 +25,18 @@ const fs = require('fs');
     if (cards.length === 0) throw new Error('No vehicle cards found');
 
     for (let i = 0; i < cards.length; i++) {
+        const tagName = await cards[i].evaluate(el => el.tagName);
         const role = await cards[i].getAttribute('role');
         const tabIndex = await cards[i].getAttribute('tabindex');
         const label = await cards[i].getAttribute('aria-label');
 
-        if (role !== 'button') console.error(`Card ${i} missing role="button"`);
-        if (tabIndex !== '0') console.error(`Card ${i} missing tabindex="0"`);
+        if (tagName !== 'BUTTON' && role !== 'button') {
+             console.error(`Card ${i} missing role="button" or not a <button> tag`);
+        }
+        // Button has implicit tabIndex 0, so we only check attribute for non-buttons
+        if (tagName !== 'BUTTON' && tabIndex !== '0') {
+             console.error(`Card ${i} missing tabindex="0"`);
+        }
         if (!label) console.error(`Card ${i} missing aria-label`);
     }
     console.log('Roles/Attributes checked.');
