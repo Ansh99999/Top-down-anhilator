@@ -5,3 +5,7 @@
 ## 2024-05-24 - Socket.io Room Lookup Optimization
 **Learning:** Iterating through all game rooms to find a player's session is O(N) and scales poorly.
 **Action:** Store `roomId` directly on `socket.data` (Socket.IO v4+) or `socket` object to enable O(1) access for high-frequency events like movement.
+
+## 2024-05-25 - Math.hypot Performance
+**Learning:** Math.hypot is ~60x slower than direct `Math.sqrt(dx*dx + dy*dy)` or squared distance comparisons in this environment (Node.js).
+**Action:** Avoid `Math.hypot` in hot loops (collision detection, AI updates). Use squared distance comparisons for thresholds and `Math.sqrt` only when the actual value is needed.
