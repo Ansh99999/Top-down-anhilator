@@ -15,3 +15,7 @@
 ## 2026-01-28 - Focus Loss on Re-render
 **Learning:** In dynamic UIs where lists are rebuilt from scratch (like the Garage), selecting an item via keyboard triggers a re-render that destroys the focused element, causing focus to reset to `body`.
 **Action:** When making dynamic lists accessible, implement focus management logic to restore focus to the selected item (or its replacement) after re-rendering, preserving the user's context.
+
+## 2026-05-18 - The Double Dash Dilemma
+**Learning:** When converting UI elements (like Dash icons) from `div`s to `<button>`s, be wary of global key listeners (e.g., Spacebar for dash). If the button is focused, pressing Space triggers both the browser's default click (which emits action) AND the global keydown listener (which emits action), causing double events.
+**Action:** When adding semantic buttons that duplicate global hotkeys, always modify the global listener to ignore the event if `document.activeElement` is the specific button, or prevent default on the button's keydown handler if appropriate.
