@@ -250,11 +250,12 @@ class GameInstance {
 
   resolveCollision(p, radius) {
     let mapR = this.mapRadius;
-    let dist = Math.hypot(p.x, p.y);
-    if (dist > mapR - radius) {
+    let distSq = p.x * p.x + p.y * p.y;
+    let limit = mapR - radius;
+    if (distSq > limit * limit) {
       let ang = Math.atan2(p.y, p.x);
-      p.x = Math.cos(ang) * (mapR - radius);
-      p.y = Math.sin(ang) * (mapR - radius);
+      p.x = Math.cos(ang) * limit;
+      p.y = Math.sin(ang) * limit;
     }
     let searchR = MAX_OBS_R + radius;
     let candidates = this.obstacleGrid.query(p.x - searchR, p.y - searchR, searchR * 2, searchR * 2);
@@ -347,12 +348,12 @@ class GameInstance {
 
         // Passives
         if (def.passives.includes('SPEED_DAMAGE')) {
-            let spd = Math.hypot(p.vx || 0, p.vy || 0);
-            dmg += spd * 1.5;
+            let spdSq = (p.vx || 0) * (p.vx || 0) + (p.vy || 0) * (p.vy || 0);
+            dmg += Math.sqrt(spdSq) * 1.5;
         }
         if (def.passives.includes('SIEGE_MODE')) {
-             let spd = Math.hypot(p.vx || 0, p.vy || 0);
-             if (spd < 0.5) dmg *= 1.3;
+             let spdSq = (p.vx || 0) * (p.vx || 0) + (p.vy || 0) * (p.vy || 0);
+             if (spdSq < 0.5 * 0.5) dmg *= 1.3;
         }
 
         // Recoil
@@ -433,22 +434,27 @@ class GameInstance {
       let owner=this.players[bot.owner];
       if(!owner){ delete this.players[bot.id]; return; }
 
-      let target=null; let minD=Infinity;
-      this.enemies.forEach(e=>{ let d=Math.hypot(e.x-bot.x,e.y-bot.y); if(d<minD){minD=d; target=e;} });
+      let target=null; let minDSq=Infinity;
+      this.enemies.forEach(e=>{
+          let dx = e.x - bot.x; let dy = e.y - bot.y;
+          let dSq = dx * dx + dy * dy;
+          if(dSq < minDSq){minDSq = dSq; target = e;}
+      });
 
-      if(target && minD<600){
+      if(target && minDSq < 600 * 600){
         let ang=Math.atan2(target.y-bot.y, target.x-bot.x);
         bot.turretAngle=ang; bot.isShooting=true;
-        if(minD>300){
+        if(minDSq > 300 * 300){
             bot.x+=Math.cos(ang)*bot.speed; bot.y+=Math.sin(ang)*bot.speed;
         } else {
             bot.x+=Math.cos(ang+Math.PI/2)*bot.speed; bot.y+=Math.sin(ang+Math.PI/2)*bot.speed;
         }
       } else {
         bot.isShooting=false;
-        let dToOwner=Math.hypot(owner.x-bot.x, owner.y-bot.y);
-        if(dToOwner>150){
-            let ang=Math.atan2(owner.y-bot.y, owner.x-bot.x);
+        let dx = owner.x - bot.x; let dy = owner.y - bot.y;
+        let dToOwnerSq = dx * dx + dy * dy;
+        if(dToOwnerSq > 150 * 150){
+            let ang=Math.atan2(dy, dx);
             bot.x+=Math.cos(ang)*bot.speed; bot.y+=Math.sin(ang)*bot.speed;
             bot.angle=ang;
         }
@@ -459,8 +465,12 @@ class GameInstance {
       this.structures.forEach((s, idx) => {
           s.life--;
           if (s.life % 30 === 0) {
-            let target = null, minD = 600;
-            this.enemies.forEach(e => { let d = Math.hypot(e.x - s.x, e.y - s.y); if (d < minD) { minD = d; target = e; } });
+            let target = null, minDSq = 600 * 600;
+            this.enemies.forEach(e => {
+                let dx = e.x - s.x; let dy = e.y - s.y;
+                let dSq = dx * dx + dy * dy;
+                if (dSq < minDSq) { minDSq = dSq; target = e; }
+            });
             if (target) {
                 let a = Math.atan2(target.y - s.y, target.x - s.x);
                 this.bullets.push({ id: Math.random(), owner: s.owner, x: s.x, y: s.y, vx: Math.cos(a) * 15, vy: Math.sin(a) * 15, damage: 10, life: 60 });
@@ -489,8 +499,15 @@ class GameInstance {
           let d = this.destructibles[i];
           io.to(this.roomId).emit('explosion', { x: d.x, y: d.y });
           // Area Dmg
-          for (let id in this.players) { if (Math.hypot(this.players[id].x - d.x, this.players[id].y - d.y) < 100) this.players[id].hp -= 30; }
-          this.enemies.forEach(e => { if (Math.hypot(e.x - d.x, e.y - d.y) < 100) e.hp -= 50; });
+          let radiusSq = 100 * 100;
+          for (let id in this.players) {
+              let dx = this.players[id].x - d.x; let dy = this.players[id].y - d.y;
+              if (dx * dx + dy * dy < radiusSq) this.players[id].hp -= 30;
+          }
+          this.enemies.forEach(e => {
+              let dx = e.x - d.x; let dy = e.y - d.y;
+              if (dx * dx + dy * dy < radiusSq) e.hp -= 50;
+          });
           this.destructibles.splice(i, 1);
         }
       }
@@ -500,19 +517,20 @@ class GameInstance {
       // AI Logic
       this.enemies.forEach(e => {
         // Find Target
-        let target = null; let minD = Infinity;
+        let target = null; let minDSq = Infinity;
         for (let id in this.players) {
           let p = this.players[id];
-          let d = Math.hypot(p.x - e.x, p.y - e.y);
-          if (p.type === 5) d /= 2; // Tank draws aggro
-          if (d < minD) { minD = d; target = p; }
+          let dx = p.x - e.x; let dy = p.y - e.y;
+          let dSq = dx * dx + dy * dy;
+          if (p.type === 5) dSq /= 4; // Tank draws aggro (d/2)^2 = d^2/4
+          if (dSq < minDSq) { minDSq = dSq; target = p; }
         }
 
         e.stateTimer--;
         if (e.stateTimer <= 0) {
-          if (minD < 200 && e.type === 1) e.state = 'flee';
-          else if (minD < 400 && e.type === 1) e.state = 'strafe';
-          else if (minD < 1000) e.state = 'chase';
+          if (minDSq < 200 * 200 && e.type === 1) e.state = 'flee';
+          else if (minDSq < 400 * 400 && e.type === 1) e.state = 'strafe';
+          else if (minDSq < 1000 * 1000) e.state = 'chase';
           else e.state = 'wander';
 
           if(e.type === 8) e.state = 'chase'; // SUICIDER ALWAYS CHASES
@@ -525,7 +543,7 @@ class GameInstance {
         let spd = e.speed;
         if (this.activeEvent && this.activeEvent.name === 'FRENZY') spd *= 1.5;
 
-        if (target && minD < 1500) {
+        if (target && minDSq < 1500 * 1500) {
           let tx = target.x - e.x; let ty = target.y - e.y;
           let ang = Math.atan2(ty, tx);
           if (e.state === 'chase') {
@@ -533,7 +551,7 @@ class GameInstance {
             if (e.type === 0) { dx += Math.cos(Date.now() / 200) * 2; dy += Math.sin(Date.now() / 200) * 2; }
           } else if (e.state === 'strafe') {
             dx = Math.cos(ang + Math.PI / 2) * spd; dy = Math.sin(ang + Math.PI / 2) * spd;
-            if (Math.random() < 0.05 && minD < 500)
+            if (Math.random() < 0.05 && minDSq < 500 * 500)
                 this.bullets.push({ id: Math.random(), owner: 'enemy', x: e.x, y: e.y, vx: Math.cos(ang) * 10, vy: Math.sin(ang) * 10, damage: 5 + this.wave, life: 100 });
           } else if (e.state === 'flee') {
             dx = -Math.cos(ang) * spd; dy = -Math.sin(ang) * spd;
@@ -551,7 +569,8 @@ class GameInstance {
         if (b.owner === 'enemy') {
             for (let id in this.players) {
                 let p = this.players[id];
-                if (Math.hypot(b.x - p.x, b.y - p.y) < 20) {
+                let dx = b.x - p.x; let dy = b.y - p.y;
+                if (dx * dx + dy * dy < 20 * 20) {
                     let dmg = b.damage;
                     let def = VEHICLE_DEFS[p.type] || VEHICLE_DEFS[0];
                     let type = b.type || 'KINETIC';
@@ -584,7 +603,8 @@ class GameInstance {
             for (let j = this.enemies.length - 1; j >= 0; j--) {
                 let e = this.enemies[j];
                 let hitR = e.radius || 32;
-                if (Math.hypot(b.x - e.x, b.y - e.y) < hitR) {
+                let dx = b.x - e.x; let dy = b.y - e.y;
+                if (dx * dx + dy * dy < hitR * hitR) {
                     let reduction = e.modifiers.includes('ARMORED') ? 0.5 : 1;
                     e.hp -= b.damage * reduction;
                     this.bullets.splice(i, 1);
@@ -592,7 +612,11 @@ class GameInstance {
                         this.enemies.splice(j, 1);
                         if (e.modifiers.includes('EXPLOSIVE')) {
                             io.to(this.roomId).emit('explosion', { x: e.x, y: e.y });
-                            for (let id in this.players) { if (Math.hypot(this.players[id].x - e.x, this.players[id].y - e.y) < 150) this.players[id].hp -= 40; }
+                            let rSq = 150 * 150;
+                            for (let id in this.players) {
+                                let pdx = this.players[id].x - e.x; let pdy = this.players[id].y - e.y;
+                                if (pdx * pdx + pdy * pdy < rSq) this.players[id].hp -= 40;
+                            }
                         }
                         let shooter = this.players[b.owner];
                         if (shooter) { shooter.score += 10 + (e.isElite ? 20 : 0); this.threat += 2; }
@@ -616,13 +640,19 @@ class GameInstance {
         let e = this.enemies[j];
         for(let id in this.players){
             let p = this.players[id];
-            if(Math.hypot(p.x-e.x, p.y-e.y) < e.radius + 20){
+            let dx = p.x - e.x; let dy = p.y - e.y;
+            let range = e.radius + 20;
+            if(dx * dx + dy * dy < range * range){
                 p.hp -= 1;
                 if(e.type === 8) { // Suicider Explode on Contact
                     e.hp = 0;
                     this.enemies.splice(j, 1);
                     io.to(this.roomId).emit('explosion', { x: e.x, y: e.y });
-                    for (let pid in this.players) { if (Math.hypot(this.players[pid].x - e.x, this.players[pid].y - e.y) < 150) this.players[pid].hp -= 40; }
+                    let rSq = 150 * 150;
+                    for (let pid in this.players) {
+                        let pdx = this.players[pid].x - e.x; let pdy = this.players[pid].y - e.y;
+                        if (pdx * pdx + pdy * pdy < rSq) this.players[pid].hp -= 40;
+                    }
                     break;
                 }
             }
