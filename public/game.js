@@ -84,10 +84,21 @@ window.game = game;
 // Garage Render
 function renderGarage() {
     const grid = document.getElementById('garage-grid');
+
+    // Capture focus index before destroy
+    let focusIdx = -1;
+    if (document.activeElement && grid.contains(document.activeElement)) {
+        focusIdx = Array.from(grid.children).indexOf(document.activeElement);
+    }
+
     grid.innerHTML = '';
     game.vehicles.forEach((v, i) => {
-        let el = document.createElement('div');
+        let el = document.createElement('button');
+        el.type = 'button';
         el.className = 'vehicle-card' + (i === game.selectedVehicle ? ' selected' : '');
+        el.setAttribute('aria-pressed', i === game.selectedVehicle ? 'true' : 'false');
+        el.setAttribute('aria-label', v.name + ' - ' + v.desc);
+
         el.innerHTML = `
             <h3>${v.name}</h3>
             <p>${v.desc}</p>
@@ -95,20 +106,19 @@ function renderGarage() {
             <div class="stat-bar"><div class="stat-fill" style="width:${v.stats.damage*2}%"></div></div>
             <div class="stat-bar"><div class="stat-fill" style="width:${v.stats.speed*10}%"></div></div>
         `;
-        el.tabIndex = 0;
-        const select = () => {
+
+        el.onclick = () => {
             game.selectedVehicle = i;
             renderGarage();
         };
-        el.onclick = select;
-        el.onkeydown = (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                select();
-            }
-        };
+
         grid.appendChild(el);
     });
+
+    // Restore focus
+    if (focusIdx >= 0 && grid.children[focusIdx]) {
+        grid.children[focusIdx].focus();
+    }
 }
 
 // --- ASSET LOADER ---
