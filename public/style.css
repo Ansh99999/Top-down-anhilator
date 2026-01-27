@@ -289,3 +289,23 @@ select:focus-visible, input[type="text"]:focus-visible {
 /* Helper Classes */
 .row { display: flex; gap: 10px; align-items: center; }
 .btn-small { padding: 5px 10px; font-size: 0.8em; background: #555; color: #fff; border: 1px solid #777; border-radius: 4px; cursor: pointer; }
+
+/* --- BUTTON RESETS --- */
+button.vehicle-card {
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+button.dash-icon,
+button.ability-icon {
+  font-family: inherit;
+  color: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0;
+  margin: 0;
+}
