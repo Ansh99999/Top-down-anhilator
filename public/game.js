@@ -84,10 +84,20 @@ window.game = game;
 // Garage Render
 function renderGarage() {
     const grid = document.getElementById('garage-grid');
+
+    // Preserve focus during re-render
+    let focusedIndex = -1;
+    if (document.activeElement && document.activeElement.classList.contains('vehicle-card')) {
+        focusedIndex = Array.from(grid.children).indexOf(document.activeElement);
+    }
+
     grid.innerHTML = '';
     game.vehicles.forEach((v, i) => {
-        let el = document.createElement('div');
+        let el = document.createElement('button');
+        el.type = 'button';
         el.className = 'vehicle-card' + (i === game.selectedVehicle ? ' selected' : '');
+        el.setAttribute('aria-pressed', i === game.selectedVehicle);
+        el.setAttribute('aria-label', `${v.name}: ${v.desc}`);
         el.innerHTML = `
             <h3>${v.name}</h3>
             <p>${v.desc}</p>
@@ -101,14 +111,12 @@ function renderGarage() {
             renderGarage();
         };
         el.onclick = select;
-        el.onkeydown = (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                select();
-            }
-        };
         grid.appendChild(el);
     });
+
+    if (focusedIndex >= 0 && grid.children[focusedIndex]) {
+        grid.children[focusedIndex].focus();
+    }
 }
 
 // --- ASSET LOADER ---
@@ -202,6 +210,11 @@ abilityBtn.addEventListener('click', e => socket.emit('ability'));
 let keys = {};
 document.addEventListener('keydown', e => {
     keys[e.key] = true;
+
+    // Avoid double-firing or triggering when typing/interacting with UI
+    const tag = document.activeElement ? document.activeElement.tagName : '';
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON') return;
+
     if (e.code === 'Space') socket.emit('dash'); // Space is now Dash
     if (e.code === 'ShiftLeft') socket.emit('ability');
 });
