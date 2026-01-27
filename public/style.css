@@ -167,21 +167,24 @@ select:focus-visible, input[type="text"]:focus-visible {
   padding: 10px;
   cursor: pointer;
   transition: all 0.2s;
+  /* Button Resets */
+  appearance: none;
+  margin: 0;
+  font-family: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
 }
 .vehicle-card:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 4px solid var(--primary);
   transform: scale(1.02);
   border-color: #fff;
+  z-index: 1;
 }
 .vehicle-card.selected {
   border-color: var(--primary);
   background: #444;
   box-shadow: 0 0 15px rgba(241, 196, 15, 0.3);
-}
-.vehicle-card:focus-visible {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 15px rgba(241, 196, 15, 0.6);
 }
 .vehicle-card h3 { font-size: 1.2em; margin: 5px 0; }
 .vehicle-card p { font-size: 0.8em; color: #bbb; margin: 5px 0; }
@@ -232,7 +235,14 @@ select:focus-visible, input[type="text"]:focus-visible {
   bottom: 150px; right: 30px;
   box-shadow: 0 4px 10px rgba(0,0,0,0.5);
   cursor: pointer;
+  /* Button Reset */
+  appearance: none;
+  padding: 0;
+  margin: 0;
+  color: #eee;
+  font-family: inherit;
 }
+.ability-icon:focus-visible { outline: 4px solid var(--primary); }
 .ability-icon.cooldown { filter: grayscale(1); opacity: 0.6; }
 .dash-icon {
   width: 40px; height: 40px;
@@ -244,7 +254,14 @@ select:focus-visible, input[type="text"]:focus-visible {
   display: flex; align-items: center; justify-content: center;
   font-size: 14px;
   cursor: pointer;
+  /* Button Reset */
+  appearance: none;
+  padding: 0;
+  margin: 0;
+  color: #eee;
+  font-family: inherit;
 }
+.dash-icon:focus-visible { outline: 4px solid var(--primary); }
 
 /* Minimap */
 #minimap {
