@@ -202,7 +202,7 @@ abilityBtn.addEventListener('click', e => socket.emit('ability'));
 let keys = {};
 document.addEventListener('keydown', e => {
     keys[e.key] = true;
-    if (e.code === 'Space') socket.emit('dash'); // Space is now Dash
+    if (e.code === 'Space' && document.activeElement !== dashBtn) socket.emit('dash'); // Space is now Dash
     if (e.code === 'ShiftLeft') socket.emit('ability');
 });
 document.addEventListener('keyup', e => {
